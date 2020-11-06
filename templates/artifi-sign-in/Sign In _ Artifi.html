@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<!-- saved from url=(0025)https://admin.artifi.net/ -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+    <title>Sign In | Artifi</title>
+    <link href="https://admin.artifi.net/Content/Images/favicon.ico" rel="shortcut icon" type="image/x-icon">
+    <link href="custom.css" rel="stylesheet">
+
+</head>
+
+<body><div class="MessageBoxContainer login-container" data-message="" data-test-selector="errEmailOrPassword"></div>
+<form action="https://admin.artifi.net/" method="post" novalidate="novalidate"><input name="__RequestVerificationToken" type="hidden" value="pVnxvfp6x167m7bdxrIN5YdRU7PbYfyw-z6qjWIndxaIK0tgPFaJKkUYQYZJhrrPBfebY2jajTTsfIkRu02CivcEJBCOPB_Phj_Rl6XcLRM1">    <div class="LoginContainer">
+        <div class="login-wrapper-container">
+            <div class="Login ClearFix">
+                <div class="LeftColumn">
+                    <img src="./Sign In _ Artifi_files/artifi-banner-box.png" alt="What is new @ artifi">
+                </div>
+                <div class="RightColumn">
+                    <div class="login-form-section">
+                        <div class="Logo">
+                            <img src="./Sign In _ Artifi_files/artifi-header-logo.png" alt="Artifi">
+                        </div>
+                        <div class="LoginForm">
+                            <div id="AccountActivateMessage"></div>
+                            <div id="AlreadyAccountActivateMessage"></div>
+
+                            <div class="EmailBox">
+                                <input data-test-selector="txtEmail" data-val="true" data-val-lengthvalidator="Email Id must be between 1-50 characters." data-val-lengthvalidator-range="1-50" data-val-regex="Please enter valid Email Id." data-val-regex-pattern="^([a-zA-Z0-9]+[a-zA-Z0-9._%-]*@(?:[a-zA-Z0-9-])+(\.+[a-zA-Z]{2,4}){1,2})$" data-val-required="Email Id is required." id="Email" name="Email" onpaste="TrimInputEmailValue(this);" placeholder="someone@example.com" type="text" value="" tabindex="1" class="valid">
+                                <span class="field-validation-valid" data-test-selector="errEmail" data-valmsg-for="Email" data-valmsg-replace="true"></span>
+                            </div>
+                            <div class="PasswordBox">
+                                <input data-test-selector="txtPassword" data-val="true" data-val-required="Password is required." id="Password" name="Password" placeholder="Password" type="password" tabindex="2" class="valid">
+                                <span class="field-validation-valid" data-test-selector="errPassword" data-valmsg-for="Password" data-valmsg-replace="true"></span>
+                            </div>
+
+                            <div class="SignIn">
+                                
+
+    <div data-test-selector="chkCommon" class="CheckBoxContainer">
+        <label class="InactiveLabel">&nbsp;</label>
+        <input class="CustomCheckBox" data-val="true" data-val-required="The Keep me signed in field is required." id="RememberMe" name="RememberMe" type="checkbox" value="true" tabindex="3"><input name="RememberMe" type="hidden" value="false">
+    </div>
+
+
+                                <label class="Remember" data-test-selector="lblRememberMe" for="RememberMe">Keep me signed in</label>
+                            </div>
+                            <div>
+                                <button type="submit" data-test-selector="btnSignIn" class="SignInBtn PrimaryBtn" title="Sign In" tabindex="4"><span><span>Sign In <i class="arrow arrow-right"></i> </span></span></button>
+                            </div>
+                            <div class="ForgotPassword">
+                                <a data-test-selector="linkForgotPassword" href="https://admin.artifi.net/Account/ForgotPassword" title="Forgot your password?">Forgot your password?</a>
+                            </div>
+                            
+
+                            <input id="ReturnUrl" name="ReturnUrl" type="hidden" value="">
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <!--Footer-->
+        <div class="FooterContainer LoginFooterContainer FooterFixed" id="Footer">
+            <div class="Footer">
+                <div class="FooterLink ClearFix">
+                    <div class="FooterLeft">
+                        <ul>
+                            <li class="First">
+                                <div class="Copyright">
+                                    <p id="currentYear">© 2020 Artifi Inc.</p>
+                                </div>
+                            </li>
+                            
+                        </ul>
+                    </div>
+                    <div class="FooterRight Link">
+                        
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</form>
+<script src="./Sign In _ Artifi_files/jqueryval"></script>
+
+<script src="./Sign In _ Artifi_files/artifi.pathconfig.js.download"></script>
+<script src="./Sign In _ Artifi_files/Artify.js.download"></script>
+<script src="./Sign In _ Artifi_files/CustomValidation.js.download"></script>
+<script src="./Sign In _ Artifi_files/PlaceHolder.js.download"></script>
+<script type="text/javascript">
+
+    $(document).ready(function () {
+
+        $("#currentYear").html("&copy; " + (new Date).getFullYear() + " Artifi Inc.");
+
+        // $('button').removeAttr("title")
+        //setTimeout(function () {
+        //    $("#AccountActivateMessage").fadeOut().empty();
+        //}, 20000);
+
+        //setTimeout(function () {
+        //    $("#AlreadyAccountActivateMessage").fadeOut().empty();
+        //}, 20000);
+
+        //setTimeout(function () {
+        //    $("#VerificationPendingMessage").fadeOut().empty();
+        //}, 20000);
+
+        //setTimeout(function () {
+        //    $("#PasswordChangedSuccessfully").fadeOut().empty();
+        //}, 10000);
+
+    });
+    $(window).bind('beforeunload', function () {
+        $('button').removeAttr("title")
+    });
+
+    //This function is used to trim input email value.
+    function TrimInputEmailValue(control) {
+        setTimeout(function () {
+            $(control).val($.trim($(control).val()));
+        }, 5);
+    }
+</script>
+
+
+</body></html>
