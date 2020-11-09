@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/17.0.1/umd/react-dom.production.min.js"></script> -->
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/17.0.1/umd/react.production.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/17.0.1/umd/react-dom.production.min.js"></script>
+
+    <script src="./dist/admin.js"></script>
+  </head>
+  <body>
+    <div id="artifi-admin"></div>
+
+    <script>
+      window.onload = function () {
+        // console.log(React);
+        ReactDOM.render(
+          React.createElement(window.ArtifiAdmin.App),
+          document.getElementById("artifi-admin")
+        );
+      };
+    </script>
+  </body>
+</html>
