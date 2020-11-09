@@ -14,6 +14,7 @@ module.exports = webpackConfiguration; */
  */
 module.exports = (env, argv) => {
     return {
+        mode: 'production',
         entry: './src/index.tsx',
         resolve: {
             extensions: [".js", "jsx", ".ts", ".tsx", ".css"],

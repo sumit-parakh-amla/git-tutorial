@@ -1,0 +1,76 @@
+1) Github Pricing:-
+
+https://github.com/pricing#feature-comparison
+
+
+2) Stack:-
+
+> Push Item  (git stash ===> push changes) , (shelveset in terms of TFS)
+> Pop Item   (git stash pop ===> pop latest stash)
+
+3) There are differences between:-
+> Convert Artifi Admin into a full fledge react web application from scratch (npx create-react-app new-artifi-admin --template typescript)
+
+and
+
+> Rendering some part of Admin/UI using React (This is what we are doing in headless artifi project) (webpack or bundlers, come into play here)
+
+
+4) Create a new react project using typescript:-
+npx create-react-app artifi-admin-components --template typescript
+
+5) You have application:-
+
+	a) written in ASP.Net
+	b) One component written in React 
+	
+	So, you'll need an identifier for that react component so that you can access it in .Net.
+	
+	To create a React component and access it with a global namespace/identifier, we bundle it using a bundler like webpack. Webpack comes with lot of 
+	other benefits like:-
+	
+	a) Bundle Size Optimization
+	b) Static Assets Optimization
+	c) Conflict Avoidance
+	
+6) To configure Webpack, we need some required dependencies:-
+	
+	a) webpack  (Core API of webpack)
+	b) webpack-cli  (CLI of webpack)
+	
+7) NPM Dependencies:-
+	
+	a) dependencies ==> These are dependencies which are directly or indirectly being used in out source code
+	b) devDependencies ==> These dependencies are used in development purpose only, (don't go in production)
+
+	webpack => create bundles from your actual source code
+
+	webpack ==> npm install -D webpack   OR   npm i --save-dev webpack
+	webpack-cli ==> npm install -D webpack-cli   OR   npm i --save-dev webpack-cli
+
+
+NPM install in-depth:-
+https://docs.npmjs.com/cli/v6/commands/npm-install
+
+
+8) Configure Webpack:-
+
+	a) npm install -D webpack webpack-cli
+	b) Populate webpack.config.js (Just like you have web.config in .Net for Application Settings & IIS)
+		This is a webpack configuration file
+	
+	webpack is a node package, not a browser package like jquery which can be accessed directly from browser.
+	
+
+9) Under "scripts" in package.json, you can define as many custom scripts as you want.
+
+10) Webpack comes with lot of loaders and plugins to handle different types of files.
+
+11) Webpack handles .js files by default, but to handle/parse ts or tsx files, you need to install a loader called ts-loader
+
+12) TS7016: Could not find a declaran file for module 'react'.  
+
+We fixed this error by setting noEmit to false in tsconfig.json
+
+
+
