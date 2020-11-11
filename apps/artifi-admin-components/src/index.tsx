@@ -1,11 +1,13 @@
 import React from "react";
+import {TextInput} from "./components/InputText";
 
 export function App() {
   return (
     <form>
+      <TextInput></TextInput>
       <input type="text" placeholder="Enter name" />
 
-      <button
+      <button type="button"
         onClick={(e) => {
           alert("Button clicked");
         }}
