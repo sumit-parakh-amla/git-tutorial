@@ -73,4 +73,9 @@ https://docs.npmjs.com/cli/v6/commands/npm-install
 We fixed this error by setting noEmit to false in tsconfig.json
 
 
+a = 1
+
+b = a
+
+fullName = firstName + ' ' + lastName
 

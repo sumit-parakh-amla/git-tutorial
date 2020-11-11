@@ -1,17 +1,23 @@
 import React from "react";
-import {TextInput} from "./components/InputText";
+import { TextInput } from "./components/InputText";
+import { ExplainRef } from './components/ExplainRef/ExplainRef';
 
 export function App() {
   return (
     <form>
       <TextInput></TextInput>
+      <ExplainRef></ExplainRef>
+      
       <input type="text" placeholder="Enter name" />
 
-      <button type="button"
+      <button
+        type="button"
         onClick={(e) => {
           alert("Button clicked");
         }}
-      >Submit</button>
+      >
+        Submit
+      </button>
     </form>
   );
 }
