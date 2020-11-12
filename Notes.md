@@ -81,3 +81,7 @@ fullName = firstName + ' ' + lastName
 
 
 To use JavaScript/TypeScript variable or syntax in JSX, you need to enclose them inside `{}`
+
+## How to Edit last commit message:
+
+`git commit --amend`
