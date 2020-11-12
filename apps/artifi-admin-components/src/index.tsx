@@ -1,5 +1,5 @@
 import React from "react";
-import { TextInput } from "./components/InputText";
+import { TextInput } from "./components/InputText/InputText";
 import { ExplainRef } from './components/ExplainRef/ExplainRef';
 
 export function App() {
