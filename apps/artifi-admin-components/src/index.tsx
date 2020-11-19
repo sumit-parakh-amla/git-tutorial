@@ -1,6 +1,7 @@
 import React from "react";
 import { TextInput } from "./components/InputText/InputText";
 import { ExplainRef } from './components/ExplainRef/ExplainRef';
+import {LiveDate} from './components/LiveDate/LiveDate';
 import { GenericType } from './components/GenericType/GenericType';
 
 export function App() {
@@ -20,6 +21,8 @@ export function App() {
       >
         Submit
       </button>
+      <hr/>
+      <LiveDate></LiveDate>
     </form>
   );
 }

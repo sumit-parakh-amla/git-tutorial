@@ -84,4 +84,9 @@ To use JavaScript/TypeScript variable or syntax in JSX, you need to enclose them
 
 ## How to Edit last commit message:
 
-`git commit --amend`
+git commit --amend
+
+
+## Component Rendering Troubleshooting
+We shouldn't update the state from the render method. It will render component infinite times.
+  
