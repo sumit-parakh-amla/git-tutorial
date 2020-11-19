@@ -79,3 +79,9 @@ b = a
 
 fullName = firstName + ' ' + lastName
 
+
+git commit --amend
+
+## Component Rendering Troubleshooting
+We shouldn't update the state from the render method. It will render component infinite times.
+  

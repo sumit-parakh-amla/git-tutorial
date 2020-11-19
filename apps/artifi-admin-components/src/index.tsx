@@ -1,7 +1,7 @@
 import React from "react";
 import { TextInput } from "./components/InputText/InputText";
 import { ExplainRef } from './components/ExplainRef/ExplainRef';
-
+import {LiveDate} from './components/LiveDate/LiveDate';
 export function App() {
   return (
     <form>
@@ -18,6 +18,8 @@ export function App() {
       >
         Submit
       </button>
+      <hr/>
+      <LiveDate></LiveDate>
     </form>
   );
 }
