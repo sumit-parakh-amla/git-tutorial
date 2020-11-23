@@ -14,7 +14,7 @@ module.exports = webpackConfiguration; */
  */
 module.exports = (env, argv) => {
     return {
-        mode: 'production',
+        mode: 'development', // by default build in development mode
         entry: './src/index.tsx',
         resolve: {
             extensions: [".js", "jsx", ".ts", ".tsx", ".css"],
@@ -23,6 +23,7 @@ module.exports = (env, argv) => {
             react: "React",
             "react-dom": "ReactDOM"
         },
+        devtool: 'inline-source-map',
         output: {
             // Defining a namespace
             library: "ArtifiAdmin",
