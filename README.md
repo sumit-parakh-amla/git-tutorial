@@ -89,4 +89,14 @@ git commit --amend
 
 ## Component Rendering Troubleshooting
 We shouldn't update the state from the render method. It will render component infinite times.
-  
+
+# Redux
+-----------------------------------
+
+It is used to manage complex data of an application using state management
+
+It is not required to use redux in all react applications. It depends on how complex your application is and how do you want to manage your data in it.
+
+![Redux Workflow](assets/images/redux.png)
+
+
