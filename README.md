@@ -99,4 +99,55 @@ It is not required to use redux in all react applications. It depends on how com
 
 ![Redux Workflow](assets/images/redux.png)
 
+# Steps to implement Redux in React Application
 
+1. Install redux dependencies:-
+
+```
+npm install redux react-redux
+```
+
+For typescript, install type definition files as well:-
+
+```
+npm install -D @types/redux @types/react-redux
+```
+
+2. Create a Redux store
+
+```typescript
+import {createStore} from 'redux';
+const store = createStore(<your-reducer>);
+```
+
+3. Create a reducer
+
+Reducer is a function which accepts state and action, as parameters.
+
+Redux function must return the immutable state.
+
+```typescript
+const reducer = (state, action) => {
+    return {...state};
+};
+```
+
+4. Encapsulate UI with Redux provider
+
+```html
+
+<Provider store={<instance-of-store>}>
+	<Your-React-Component>
+	</Your-React-Component>
+</Provider>
+
+```
+
+5. Install redux-devtools-extension to debug redux state
+
+```
+npm install --save redux-devtools-extension
+```
+
+
+### **Note:**  A file can have multiple named exports but only one default export
