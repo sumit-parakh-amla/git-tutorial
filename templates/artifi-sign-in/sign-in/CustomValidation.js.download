@@ -1,0 +1,182 @@
+﻿(function ($) {
+    //---------------------LengthValidator---------------------------------------------------------------------------------------
+    $.validator.addMethod('lengthvalidator', function (value, element, params) {
+
+        var res = params.split("-");
+        var txt = $.trim(value);
+        if (txt.length < res[0] || txt.length > res[1]) {
+            return false;
+        }
+        else return true;
+    }, '');
+    $.validator.unobtrusive.adapters.add('lengthvalidator', ['range'], function (options) {
+        options.rules["lengthvalidator"] = options.params.range;
+        options.messages['lengthvalidator'] = options.message;
+    });
+
+    //---------------------MobileNoValidator-------------------------------------------------------------------------
+    $.validator.addMethod('mobilenovalidator', function (value, element, params) {
+        var regex = "([0-9]+)$";
+        if (value.length == 10 && (!(isNaN(value))))
+            return true;
+        else return false;
+    }, '');
+    $.validator.unobtrusive.adapters.add('mobilenovalidator', ['param'], function (options) {
+        options.rules["mobilenovalidator"] = options.params.param;
+        options.messages['mobilenovalidator'] = options.message;
+    });
+
+    //---------------------MustBeTrueValidator-------------------------------------------------------------------------
+
+    $.validator.addMethod('mustbetruevalidator', function (value, element, params) {
+        if (element.checked == true)
+            return true;
+        else
+            return false;
+
+    }, '');
+
+    $.validator.unobtrusive.adapters.add('mustbetruevalidator', ['param'], function (options) {
+        options.rules["mustbetruevalidator"] = options.params.param;
+        options.messages['mustbetruevalidator'] = options.message;
+    });
+    //---------------------------------------------------------------------------------------------------------------
+
+    //---------------------File Upload Validation-------------------------------------------------------------------------
+
+    /*
+    * For raster And vector custom data annotaion.
+    * if raster image is sued, then raster files allowed size will be checked else vector file size will be checked
+    */
+    $.validator.addMethod("rasterandvectormaxsize", function (value, element, param) {
+        var maxFileSize;
+        if (value && value.match(/fakepath/)) {
+            // update the file-path text using case-insensitive regex
+            value = value.replace(/C:\\fakepath\\/i, '');
+        }
+        var elementName = $(element).parent().parent().find('output').attr('data-selector');
+        var uploadedImageSize = 0;
+        if (element.files != null) {
+            if (element.files.length != 0) {
+                uploadedImageSize = element.files[0].size;
+                var maxFileSizeArray = param.split(":");
+                maxFileSize = IsVectorFileType(element.files[0].type) ? maxFileSizeArray[1] : maxFileSizeArray[0];
+            }
+        }
+        if (uploadedImageSize > maxFileSize) {
+            $("[data-selector='" + elementName + "']").html("")
+            return false;
+        }
+        else {
+            if (value != "") {
+                $("[data-selector='" + elementName + "']").html("<span class='truncate-upload-msg' title='" + value + " file selected.'>" + value + " file selected.</span>");
+            }
+            return true;
+        }
+    });
+
+    $.validator.unobtrusive.adapters.add
+     ("rasterandvectormaxsize", ["rastermaxsize", "vectormaxsize"], function (options) {
+         options.rules["rasterandvectormaxsize"] = options.params.rastermaxsize + ":" + options.params.vectormaxsize; 
+         var rasterFileSizeinMB = options.params.rastermaxsize / (1024 * 1024);
+         var vectorFileSizeinMB = options.params.vectormaxsize / (1024 * 1024);
+         options.messages["rasterandvectormaxsize"] = options.message.replace("{0}", rasterFileSizeinMB).replace("{1}", vectorFileSizeinMB);
+     });
+
+    //For Validate File size
+    $.validator.addMethod("filesize", function (value, element, param) {
+        if (value.match(/fakepath/)) {
+            // update the file-path text using case-insensitive regex
+            value = value.replace(/C:\\fakepath\\/i, '');
+        }
+        var elementName = $(element).parent().parent().find('output').attr('data-selector');
+        var uploadedImageSize = 0;
+        if (element.files != null) {
+            if (element.files.length != 0) {
+                uploadedImageSize = element.files[0].size;
+            }
+        }
+        if (uploadedImageSize > param) {
+            $("[data-selector='" + elementName + "']").html("")
+            return false;
+        }
+        else {
+
+            if (value != "") {
+                $("[data-selector='" + elementName + "']").html("<span class='truncate-upload-msg' title='" + value + " file selected.'>" + value + " file selected.</span>");
+            }
+            return true;
+        }
+    });
+
+    $.validator.unobtrusive.adapters.add
+       ("filesize", ["maxsize"], function (options) {
+
+           options.rules["filesize"] = options.params.maxsize;
+           options.messages["filesize"] = options.message;
+       });
+
+    // For Validate File Extensions
+    $.validator.addMethod("fileextensions", function (value, element, param) {
+
+        if (value.match(/fakepath/)) {
+            // update the file-path text using case-insensitive regex
+            value = value.replace(/C:\\fakepath\\/i, '');
+        }
+        var elementName = $(element).parent().parent().find('output').attr('data-selector');
+        var extension = "";
+        if (value != "") {
+            extension = getFileExtension(value).toLowerCase();
+        }
+        if ($.inArray(extension, param.fileextensions) !== -1) {
+
+            if (value != "") {
+                $("[data-selector='" + elementName + "']").html("<span class='truncate-upload-msg' title='" + value + " file selected.'>" + value + " file selected.</span>")
+            }
+            return true;
+        }
+        else {
+            if (value != "") {
+                $("[data-selector='" + elementName + "']").html("")
+                return false;
+            } else {
+                /*If image is optional then there is no extention so we return true.*/
+                return true;
+            }
+        }
+
+    });
+    $.validator.unobtrusive.adapters.add
+       ("fileextensions", ["fileextensions"], function (options) {
+           var params = {
+               fileextensions: options.params.fileextensions.split(',')
+           };
+           options.rules["fileextensions"] = params;
+           options.messages["fileextensions"] = options.message;
+       });
+
+    function getFileExtension(fileName) {
+        var extension = (/[.]/.exec(fileName)) ? /[^.]+$/.exec(fileName) : "";
+        if (extension != "") {
+            return extension[0];
+        }
+        return extension;
+    };
+
+    //---------------------NumberRangeValidator---------------------------------------------------------------------------------------
+
+    $.validator.addMethod('numberlength', function (value, element, params) {
+        var res = params.split("-");
+        var txt = $.trim(value);
+
+        if (parseInt(txt) < parseInt(res[0]) || parseInt(txt) > parseInt(res[1])) {
+            return false;
+        }
+        else return true;
+    }, '');
+    $.validator.unobtrusive.adapters.add('numberlength', ['range'], function (options) {
+        options.rules["numberlength"] = options.params.range;
+        options.messages['numberlength'] = options.message;
+    });
+
+})(jQuery);

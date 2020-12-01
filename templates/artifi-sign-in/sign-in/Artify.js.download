@@ -1,0 +1,2377 @@
+﻿/// <reference path="../Views/Company/ResendVerificationLink.cshtml" />
+var productStatusId_Draft = 1;
+var productStatusId_Inactive = 2;
+var productStatusId_Publish = 3;
+var isArtifiTabJSLoaded = false;
+var dpiValue = 90;
+var conversionPxToPt = 1;
+//var conversionFactorPxToPt = 0.75;
+var decimalFixedValue = 4;
+var validationRulesObject = {};
+
+/*endsWith property not supported in IE and Safari, SO that we have registered if this function is not present before calling.*/
+var _endsWith = function () {
+    if (!String.prototype.endsWith) {
+        String.prototype.endsWith = function (suffix) {
+            return this.indexOf(suffix, this.length - suffix.length) !== -1;
+        };
+    }
+}();
+
+var domainIp = ArtifiAdmin.PathConfig.serverFrontUrl;
+var parametarHeaderKey = 'personalization';
+var IsUrlEncodingEnableInLaunching = true;
+var excludeDeelinkingList = ["list", "EmbroideryFontSetList", "ViewAreaList", "CustomFieldList", "ProductTemplateGroupList", "CompanyUserList","AdvanceFeatures"];
+
+
+var loaderTimeoutPtr = -1, loaderDelay = 500;
+function startLoading(message) {
+    ClearLoaderTimer();
+    loaderTimeoutPtr = setTimeout(startLoadingTimed, loaderDelay, message);
+}
+
+function ClearLoaderTimer() {
+    if (loaderTimeoutPtr != -1) {
+        clearTimeout(loaderTimeoutPtr);
+        loaderTimeoutPtr = -1;
+    }
+}
+
+/*dissable all keys except num keys*/
+function IsNumberKey(evt) {
+    var charCode = (evt.which) ? (evt.which) : event.keyCode;
+    if (charCode > 31 && (charCode < 48 || charCode > 57)) {
+        return false;
+    }
+    return true;
+}
+
+/*dissable all keys except num keys and period*/
+function IsFloatNumberKey(evt, value) {
+    var charCode = (evt.which) ? (evt.which) : event.keyCode;
+    if (charCode == 46) {
+        if (value != undefined && value.indexOf(".") === -1) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+    return IsNumberKey(evt);
+
+}
+function startLoadingTimed(message) {
+    ClearLoaderTimer();
+    if (message == null) {
+        message = "Please Wait...";
+    }
+
+    if ($("#loading_overlay").length) {
+        $("#loading_overlay").remove();
+        $(".loadingContent").remove();
+    }
+    $('body').append('<div id="loading_overlay">' + '</div>' +
+        '<div class="loadingContent">' +
+        '<div class="loadingImage"><img alt="" src="/Content/Images/loadingImg.gif" height="80px"/></div>' +
+        '<div class="loadingMessage">' + message + '</div>' +
+        '</div>'
+
+    );
+}
+
+function stopLoading() {
+    ClearLoaderTimer();
+    $("#loading_overlay").remove();
+    $(".loadingContent").remove();
+
+}
+
+function SpacebarHandler() {
+    $(':input:visible').live("keypress", function (e) {
+        if (e.which === 32 && !this.value.length)
+            e.preventDefault();
+    });
+}
+
+function CheckAuthentication() {
+    var isAuthenticated = true;
+    $.ajax({
+        url: '/Clipart/IsAuthenticated',
+        contentType: 'application/json; charset=utf-8',
+        type: 'GET',
+        success: function (data) {
+            if (data == false) {
+                isAuthenticated = false;
+                window.location.href = '/Company/Login';
+            }
+        }
+    });
+    return isAuthenticated;
+}
+
+function SetFocusOnFirstField() {
+    var firstInput = $(':input:enabled:visible:first');
+    if (firstInput.length) {
+        var data = firstInput.val();
+        firstInput.focus().val('').val(data);
+    }
+}
+
+function SetFocusOnSpecificField(Id) {
+    var specificField = $("#" + Id);
+    if (specificField.length) {
+        var data = specificField.val();
+        specificField.focus().val('').val(data);
+    }
+}
+
+Notifications = {
+
+    Display: function () {
+
+        var element = $(".MessageBoxContainer");
+        if (element.length) {
+            var msgObj = element.data('message');
+
+            if (msgObj !== "") {
+                Notifications.DisplayHelper(msgObj.Message, msgObj.Type, msgObj.IsFadeOut, msgObj.FadeOutMilliSeconds);
+            }
+        }
+    },
+
+    DisplayHelper: function (message, type, isFadeOut, fadeOutMilliSeconds) {
+        var element = $(".MessageBoxContainer");
+        var closeBtnHtml = "<button type='button' data-test-selector='btnCloseNotification' onclick='Notifications.CloseDisplayBox();' class='Close' title='Close'><span><span>&nbsp;</span></span></button>";
+
+        if (element.length) {
+            if (message !== "" && message != null) {
+
+                element.html("<div class='MessageBox'><p data-test-selector='popUpNotificationMessaage'>" + message + "</p>" + closeBtnHtml + "</div></div>");
+                setTableHeight();
+                switch (type) {
+                    case "success":
+                        {
+                            element.find('p').addClass('SuccessMessage');
+                            break;
+                        }
+                    case "error":
+                        {
+                            element.find('p').addClass('ErrorMessage');
+                            break;
+                        }
+                    default:
+                        {
+                            element.find('p').addClass('InfoMessage');
+                        }
+                }
+
+                if (isFadeOut === "" || isFadeOut == null || typeof isFadeOut === "undefined") isFadeOut = false;
+                if (fadeOutMilliSeconds === "" || fadeOutMilliSeconds == null || typeof fadeOutMilliSeconds === "undefined") fadeOutMilliSeconds = 5000;
+
+                if (isFadeOut) {
+                    setTimeout(function () {
+                        element.fadeOut().empty();
+                    }, fadeOutMilliSeconds);
+                }
+            }
+        }
+    },
+
+    CloseDisplayBox: function () {
+        var $target = $(".MessageBox");
+        $target.slideUp('normal', function () { $target.remove(); setTableHeight(); });
+    }
+}
+
+function submitAjaxForm(formid, validate) {
+    var urlsArray = ["/ProductView/GetArtification", "/ProductView/StartArtification"]
+    var targetHref = $('#' + formid).attr('action');
+    if (!DeepLinking.IsActive()) {
+        if (typeof targetHref != typeof undefined && targetHref != null && targetHref != "") {
+            targetHref = targetHref.replace('isDeeplink=True', "isDeeplink=false");
+            $('#' + formid).attr('action', targetHref);
+        }
+    }
+    var bSuccess = true;
+    if (typeof validate !== 'undefined' || validate != null) {
+        bSuccess = validate();
+    }
+    if (bSuccess || typeof bSuccess === 'undefined') {
+
+        Notifications.CloseDisplayBox();
+
+        $('#' + formid).on("submit", function () {
+            activateErrorTab();
+            var checkStatus;
+            if (typeof $('#' + formid).valid == 'function') {
+                checkStatus = $('#' + formid).valid();
+            }
+            else {
+                checkStatus = $('#' + formid).valid;
+            }
+            if (checkStatus == true && !DeepLinking.IsActive()) {
+                startLoading('Please Wait...');
+            }
+        });
+        if ($.inArray(targetHref, urlsArray) != -1) {
+            var validator = $('#' + formid).data("validator");
+            $('#' + formid).data("validator").settings.rules = !$.isEmptyObject(validationRulesObject) ? validationRulesObject : $('#' + formid).data("validator").settings.rules;
+            validator.settings.ignore = ".browseImage,[type='hidden']"; // This setting of plugin ignores the selctors from validation
+        }
+        disableRulesExceptProductView(targetHref, formid);
+        $('#' + formid).submit();
+    }
+    else if (!bSuccess) {
+        activateErrorTab();
+    }
+}
+
+/*Below function deletes all  validation rules when clicked on assign template button, except product view name rules. */
+function disableRulesExceptProductView(targetHref, formid) {
+    if (targetHref == AdminLocalization.ASSIGN_TEMPLATE_HREF) {
+        validator = $('#' + formid).data("validator");
+        var productViewNameAttribute = $("#productViewModel_Name").attr("name");
+        validationRulesObject = validator.settings.rules;
+        var productViewNameRuleData = validator.settings.rules[productViewNameAttribute];
+        var productViewNameRuleDataObj = {};
+        productViewNameRuleDataObj[productViewNameAttribute] = productViewNameRuleData;
+        $('#' + formid).data("validator").settings.rules = productViewNameRuleDataObj;
+    }
+}
+/*
+* this function activates tab in which error occured.
+*/
+function activateErrorTab() {
+    var tabId = $('[generated="true"]').closest('[role="tabpanel"]').attr("id");
+    var tabIndex = $('[href="#' + tabId + '"]').parent().index();
+    if (tabIndex >= 0 && $.isNumeric(tabIndex)) $("#bottom-tabs").tabs({ "active": tabIndex });
+    if ($('.field-validation-error[data-valmsg-replace]').length) {
+        var inputName = $('.field-validation-error[data-valmsg-replace]').attr("data-valmsg-for")
+        $('[name="' + inputName + '"]').focus();
+    };
+}
+
+function cancelFrom(action, controller) {
+    var userEditPath = "/" + controller + "/" + action;
+    document.location = userEditPath;
+}
+
+function addNewFrom(action, controller) {
+    var userEditPath = "/" + controller + "/" + action;
+    document.location = userEditPath;
+}
+
+function RadioBtnStyleHandler() {
+    if ($(this).prev("input[name='radiobtn']:checked")) {
+        $("input:radio").removeClass("ActiveRadio");
+        $(this).prev("input:radio").addClass("ActiveRadio");
+    }
+}
+
+function CheckboxStyleHandler() {
+    var chkBox = $(".CheckBoxContainer input:checkbox");
+    var label = $(".CheckBoxContainer label");
+    if ($(chkBox).is(":checked")) {
+        $(chkBox).prop('checked', false);
+        $(label).removeClass("ActiveLabel");
+        $(label).addClass("InactiveLabel");
+    }
+    else {
+        $(chkBox).prop('checked', true);
+        $(label).removeClass("InactiveLabel");
+        $(label).addClass("ActiveLabel");
+    }
+}
+
+TabSelector = {
+
+    HighlightSideTab: function (url) {
+        var tabUrlList = [];
+
+        /*Dashboard*/
+        tabUrlList.push({ url: "/dashboard", isDynamicId: false, parentMenuContent: "Dashboard" });
+
+        /*Layout Setting*/
+        tabUrlList.push({ url: "/superadmin/assignlayout", parentTabId: "#tbLayoutSetting", selectedTabId: "#tbAssignLayout", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+
+        /*Company Setting*/
+        tabUrlList.push({ url: "/superadmin/advancefeatures", parentTabId: "#tbCompanySetting", selectedTabId: "#tbAdvanceFeatures", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+        tabUrlList.push({ url: "/superadmin/assigncompanytoadmincontrol", parentTabId: "#tbCompanySetting", selectedTabId: "#tbAssignCompanyToAdminControl", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+        tabUrlList.push({ url: "/superadmin/assignmultipleouptutsettingstocompany", parentTabId: "#tbCompanySetting", selectedTabId: "#tbAssigneMultipleOutputSetting", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+
+        /*Caption*/
+        tabUrlList.push({ url: "/webcaption/create", parentTabId: "#tbCaptionLink", selectedTabId: "#tbCreateCaption", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+        tabUrlList.push({ url: "/webcaption/assigncaption", parentTabId: "#tbCaptionLink", selectedTabId: "#tbAssignCaption", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+        tabUrlList.push({ url: "/webcaption/assigncaption?islayoutcaption=", parentTabId: "#tbCaptionLink", selectedTabId: "#tbAssignCaptionLayout", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+        tabUrlList.push({ url: "/webcaption/list", parentTabId: "#tbCaptionLink", selectedTabId: "#tbModifyCaption", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+
+        /*General Setting*/
+        tabUrlList.push({ url: "/superadmin/debuggersetting", parentTabId: "#tbGeneralSetting", selectedTabId: "#tbDebuggerSetting", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+        tabUrlList.push({ url: "/superadmin/updatepdfstatus", parentTabId: "#tbGeneralSetting", selectedTabId: "#tbPDFService", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+        tabUrlList.push({ url: "/superadmin/globalfont/list", parentTabId: "#tbGeneralSetting", selectedTabId: "#tbglobalfont", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+        tabUrlList.push({ url: "/superadmin/storagelimit/list", parentTabId: "#tbGeneralSetting", selectedTabId: "#tbStorageLimit", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+        tabUrlList.push({ url: "/superadmin/storagelimit/create", parentTabId: "#tbGeneralSetting", selectedTabId: "#tbStorageLimit", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+        tabUrlList.push({ url: "/superadmin/storagelimit/edit", parentTabId: "#tbGeneralSetting", selectedTabId: "#tbStorageLimit", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+
+        /*Clean Up*/
+        tabUrlList.push({ url: "/cleanup/cleandata", parentTabId: "#tbCleanupLink", selectedTabId: "#tbCleanUp", isDynamicId: false, parentMenuContent: "CleanUp" });
+        tabUrlList.push({ url: "/cleanup/cleanfile", parentTabId: "#tbCleanupLink", selectedTabId: "#tbCleanUpFile", isDynamicId: false, parentMenuContent: "CleanUp" });
+        tabUrlList.push({ url: "/cleanup/imagecleanup", parentTabId: "#tbCleanupLink", selectedTabId: "#tbImageCleanUp", isDynamicId: false, parentMenuContent: "CleanUp" });
+        tabUrlList.push({ url: "/superadmin/purgecontent", parentTabId: "#tbCleanupLink", selectedTabId: "#tbPurgeContent", isDynamicId: false, parentMenuContent: "CleanUp" });
+
+        tabUrlList.push({ url: "/weblayout/list", parentTabId: "#tbWebLayoutList", selectedTabId: "#tbWebLayoutList", isDynamicId: false, parentMenuContent: "WebLayout" });
+
+
+
+        tabUrlList.push({ url: "/bulkuploadadmin/tasklist", parentTabId: "#tbBulkUploadLink", selectedTabId: "#tbTaskList", isDynamicId: false, parentMenuContent: "BulkUploadAdmin" });
+        tabUrlList.push({ url: "/bulkuploadadmin/assigncompany", parentTabId: "#tbBulkUploadLink", selectedTabId: "#tbTaskList", isDynamicId: false, parentMenuContent: "BulkUploadAdmin" });
+        tabUrlList.push({ url: "/bulkuploadadmin/configuration", parentTabId: "#tbBulkUploadLink", selectedTabId: "#tbTaskList", isDynamicId: false, parentMenuContent: "BulkUploadAdmin" });
+        tabUrlList.push({ url: "/bulkuploadadmin/assigntemplateproperty", parentTabId: "#tbBulkUploadLink", selectedTabId: "#tbAssignTemplateProperty", isDynamicId: false, parentMenuContent: "BulkUploadAdmin" });
+
+        //   tabUrlList.push({ url: "/windowsservice/windowsservice", parentTabId: "#tbAssignCaption", selectedTabId: "#tbPDFService", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+        //   tabUrlList.push({ url: "/superadmin/updatepdfstatus", parentTabId: "#tbModifyCaption", selectedTabId: "#tbUpdatePDFService", isDynamicId: false, parentMenuContent: "SuperAdmin" });
+
+        /*Attributes*/
+        tabUrlList.push({ url: "/attribute/list", parentTabId: "#tbAttributeLink", selectedTabId: "#tbAttributeList", isDynamicId: true, dynIdElems: [], dynVarName: "divisionId", dynamicHideElement: ".ProductVaritntViewList", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/attribute/create", parentTabId: "#tbAttributeLink", selectedTabId: "#tbAttributeList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/attribute/edit/", parentTabId: "#tbAttributeLink", selectedTabId: "#tbAttributeList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/attribute/createattribute", parentTabId: "#tbAttributeLink", selectedTabId: "#tbAttributeList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/attribute/editattribute/", parentTabId: "#tbAttributeLink", selectedTabId: "#tbAttributeList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/attributeset/list", parentTabId: "#tbAttributeLink", selectedTabId: "#tbAttributeSetList", isDynamicId: true, dynIdElems: [], dynVarName: "divisionId", dynamicHideElement: ".ProductVaritntViewList", parentMenuContent: "Merchandise"});
+        tabUrlList.push({ url: "/attributeset/create", parentTabId: "#tbAttributeLink", selectedTabId: "#tbAttributeSetList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/attributeset/edit/", parentTabId: "#tbAttributeLink", selectedTabId: "#tbAttributeSetList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/attributeset/createattribute", parentTabId: "#tbAttributeLink", selectedTabId: "#tbAttributeSetList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/attributeset/editattribute/", parentTabId: "#tbAttributeLink", selectedTabId: "#tbAttributeSetList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/attributegroup/list?", parentTabId: "#tbAttributeLink", selectedTabId: "#tbAttributeGroupList", isDynamicId: true, dynIdElems: [], dynVarName: "attributeSetId", dynamicShowElement: ".ProductVaritntViewList", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/attributegroup/edit", parentTabId: "#tbAttributeLink", selectedTabId: "#tbAttributeGroupList", isDynamicId: true, dynIdElems: [], dynVarName: "attributeSetId", dynamicShowElement: ".ProductVaritntViewList", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/attributegroup/create", parentTabId: "#tbAttributeLink", selectedTabId: "#tbAttributeGroupList", isDynamicId: true, dynIdElems: [], dynVarName: "attributeSetId", dynamicShowElement: ".ProductVaritntViewList", parentMenuContent: "Merchandise" });
+
+        /*Color*/
+        tabUrlList.push({ url: "/color/list", parentTabId: "#tbColorsLink", selectedTabId: "#tbColorList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/color/createmultiplecolor", parentTabId: "#tbColorsLink", selectedTabId: "#tbColorList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/color/edit/", parentTabId: "#tbColorsLink", selectedTabId: "#tbColorList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/colorset/list", parentTabId: "#tbColorsLink", selectedTabId: "#tbColorSetList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/colorset/create", parentTabId: "#tbColorsLink", selectedTabId: "#tbColorSetList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/colorset/edit/", parentTabId: "#tbColorsLink", selectedTabId: "#tbColorSetList", isDynamicId: false, parentMenuContent: "Merchandise" });
+
+        /*ThreadChart*/
+        tabUrlList.push({ url: "/threadchart/list", parentTabId: "#tbThreadChartLink", selectedTabId: "#tbThreadChartList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/threadchart/createthreadchart", parentTabId: "#tbThreadChartLink", selectedTabId: "#tbThreadChartList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/threadchart/list", parentTabId: "#tbThreadChartLink", selectedTabId: "#tbThreadChartList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/threadchart/edit/", parentTabId: "#tbThreadChartLink", selectedTabId: "#tbThreadChartList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        /*Font Family*/
+        tabUrlList.push({ url: "/font/list", parentTabId: "#tbFontLink", selectedTabId: "#tbFontList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/font/create", parentTabId: "#tbFontLink", selectedTabId: "#tbFontList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/font/edit/", parentTabId: "#tbFontLink", selectedTabId: "#tbFontList", isDynamicId: false, parentMenuContent: "Merchandise" });
+
+        /*Font set Family*/
+        tabUrlList.push({ url: "/fontset/list", parentTabId: "#tbFontLink", selectedTabId: "#tbFontSetList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/fontset/create", parentTabId: "#tbFontLink", selectedTabId: "#tbFontSetList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/fontset/edit/", parentTabId: "#tbFontLink", selectedTabId: "#tbFontSetList", isDynamicId: false, parentMenuContent: "Merchandise" });
+
+        /*Font set Family*/
+        tabUrlList.push({ url: "/fontset/embroideryfontsetlist", parentTabId: "#tbFontLink", selectedTabId: "#tbEmbroideryFontSetList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/fontset/embroideryfontsetcreate", parentTabId: "#tbFontLink", selectedTabId: "#tbEmbroideryFontSetList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/fontset/embroideryfontsetedit/", parentTabId: "#tbFontLink", selectedTabId: "#tbEmbroideryFontSetList", isDynamicId: false, parentMenuContent: "Merchandise" });
+
+        /*Special Instruction Messages */
+        tabUrlList.push({ url: "/message/list", parentTabId: "#tbMessageLink", selectedTabId: "#tbMessageList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/message/create", parentTabId: "#tbMessageLink", selectedTabId: "#tbMessageList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/message/edit/", parentTabId: "#tbMessageLink", selectedTabId: "#tbMessageList", isDynamicId: false, parentMenuContent: "Merchandise" });
+
+        /*Special Instruction Grouped Messages */
+        tabUrlList.push({ url: "/groupedmessage/list", parentTabId: "#tbMessageLink", selectedTabId: "#tbGroupedMessageList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/groupedmessage/create", parentTabId: "#tbMessageLink", selectedTabId: "#tbGroupedMessageList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/groupedmessage/edit/", parentTabId: "#tbMessageLink", selectedTabId: "#tbGroupedMessageList", isDynamicId: false, parentMenuContent: "Merchandise" });
+
+
+        /*Rule*/
+        tabUrlList.push({ url: "/rule/list", parentTabId: "#tbRuleLink", selectedTabId: "#tbRule", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/rule/create", parentTabId: "#tbRuleLink", selectedTabId: "#tbRule", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/rule/edit/", parentTabId: "#tbRuleLink", selectedTabId: "#tbRule", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/rule/setdefaultrule", parentTabId: "#tbRuleLink", selectedTabId: "#tbRule", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+
+        /*Template Category*/
+        tabUrlList.push({ url: "/templatecategory/list", parentTabId: "#tbTemplateLink", selectedTabId: "#tbTemplateCategory", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/templatecategory/create", parentTabId: "#tbTemplateLink", selectedTabId: "#tbTemplateCategory", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/templatecategory/edit", parentTabId: "#tbTemplateLink", selectedTabId: "#tbTemplateCategory", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+
+        /*Template*/
+        tabUrlList.push({ url: "/template/list", parentTabId: "#tbTemplateLink", selectedTabId: "#tbTemplate", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/template/create", parentTabId: "#tbTemplateLink", selectedTabId: "#tbTemplate", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/template/edit", parentTabId: "#tbTemplateLink", selectedTabId: "#tbTemplate", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+
+        if (url.toLowerCase().indexOf("groupid=2") > -1) {
+            /*Monogram*/
+            tabUrlList.push({ url: "/template/list", parentTabId: "#tbMonogramLink", selectedTabId: "#tbMonogram", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+            tabUrlList.push({ url: "/template/create", parentTabId: "#tbMonogramLink", selectedTabId: "#tbMonogram", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+            tabUrlList.push({ url: "/template/edit", parentTabId: "#tbMonogramLink", selectedTabId: "#tbMonogram", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        }
+
+        /*WidgetGroup Product View and Template*/
+        if (url.toLowerCase().indexOf("productview") > -1 && !url.toLowerCase().indexOf("productviewareaid=0") > -1) {
+            tabUrlList.push({ url: "/widgetgroup/list", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+            tabUrlList.push({ url: "/widgetgroup/create", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+            tabUrlList.push({ url: "/widgetgroup/edit", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        }
+        /*Template*/
+        tabUrlList.push({ url: "/templatesvg/list", parentTabId: "#tbTemplateLink", selectedTabId: "#TemplateSVG", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/templatesvg/create", parentTabId: "#tbTemplateLink", selectedTabId: "#TemplateSVG", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/templatesvg/edit", parentTabId: "#tbTemplateLink", selectedTabId: "#TemplateSVG", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+
+        /*Template Group*/
+        tabUrlList.push({ url: "/templategroup/list", parentTabId: "#tbTemplateLink", selectedTabId: "#tbTemplateGroup", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/templategroup/create", parentTabId: "#tbTemplateLink", selectedTabId: "#TemplateGroupCreate", isDynamicId: true, dynIdElems: ["#TemplateGroupCreate", "#TemplateGroupEdit"], dynamicShowElement: "#TemplateGroupCreate", dynamicHideElement: "#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/templategroup/edit", parentTabId: "#tbTemplateLink", selectedTabId: "#TemplateGroupEdit", isDynamicId: true, dynIdElems: ["#TemplateGroupCreate", "#TemplateGroupEdit"], dynamicShowElement: "#TemplateGroupEdit", dynamicHideElement: "#TemplateGroupCreate", parentMenuContent: "Merchandise" });
+
+        /*Cliparts*/
+        tabUrlList.push({ url: "/clipart/folderlist", parentTabId: "#tbClipartLink", selectedTabId: "#tbClipartFamilyList", isDynamicId: true, dynShowHideElement: ".ClipartTab", dynamicShowElement: "#tbTagList, #tbClipartFamilyList", dynamicHideElement: ".DynamicShowHide", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/clipart/createfolder", parentTabId: "#tbClipartLink", selectedTabId: "#tbClipartFamilyList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/clipart/editfolder/", parentTabId: "#tbClipartLink", selectedTabId: "#tbClipartFamilyEdit", isDynamicId: true, dynIdElems: ["#manageCliparts", "#assignClipartTags", "#tbClipartFamilyEdit"], dynVarName: "folderid", dynamicShowElement: ".DynamicShowHide", dynamicHideElement: "#tbTagList, #tbClipartFamilyList", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/clipart/managecliparts?folderid=", parentTabId: "#tbClipartLink", selectedTabId: "#manageCliparts", isDynamicId: true, dynIdElems: ["#manageCliparts", "#assignClipartTags", "#tbClipartFamilyEdit"], dynVarName: "folderid", dynamicShowElement: ".DynamicShowHide", dynamicHideElement: "#tbTagList, #tbClipartFamilyList", parentMenuContent: "Merchandise" });
+        //tabUrlList.push({ url: "/tag/assigncliparttags?", parentTabId: "#tbClipartLink", selectedTabId: "#assignClipartTags", isDynamicId: true, dynIdElems: ["#manageCliparts", "#assignClipartTags", "#tbClipartFamilyEdit"], dynVarName: "folderid", dynamicShowElement: ".DynamicShowHide", dynamicHideElement: "#tbTagList, #tbClipartFamilyList", parentMenuContent: "Merchandise" });
+        //tabUrlList.push({ url: "/tag/list", parentTabId: "#tbClipartLink", selectedTabId: "#tbTagList", isDynamicId: true, dynamicShowElement: "#tbTagList, #tbClipartFamilyList", dynamicHideElement: ".DynamicShowHide", parentMenuContent: "Merchandise" });
+        //tabUrlList.push({ url: "/tag/create", parentTabId: "#tbClipartLink", selectedTabId: "#tbTagList", isDynamicId: true, dynamicShowElement: "#tbTagList, #tbClipartFamilyList", dynamicHideElement: ".DynamicShowHide", parentMenuContent: "Merchandise" });
+        //tabUrlList.push({ url: "/tag/edit/", parentTabId: "#tbClipartLink", selectedTabId: "#tbTagList", isDynamicId: false, parentMenuContent: "Merchandise" });
+
+
+        /*Reports*/
+        tabUrlList.push({ url: "/customizedproduct/list", parentTabId: "#tbAllOrderList", selectedTabId: "#tbAllOrderList", isDynamicId: false, parentMenuContent: "Reports" });
+        tabUrlList.push({ url: "/customizedproduct/placedlist", parentTabId: "#tbPlacedList", selectedTabId: "#tbPlacedList", isDynamicId: false, parentMenuContent: "Reports" });
+        tabUrlList.push({ url: "/customizedproduct/inprogresslist", parentTabId: "#tbInProgress", selectedTabId: "#tbInProgress", isDynamicId: false, parentMenuContent: "Reports" });
+        tabUrlList.push({ url: "/customizedproduct/requestquotelist", parentTabId: "#tbRequestQuote", selectedTabId: "#tbRequestQuote", isDynamicId: false, parentMenuContent: "Reports" });
+
+        //tabUrlList.push({ url: "/customizedproduct/list", parentTabId: "#tbCostomizedProductList", selectedTabId: "#tbCostomizedProductList", isDynamicId: false, parentMenuContent: "Reports" });
+        //tabUrlList.push({ url: "/customizedproduct/recentorderslist", parentTabId: "#tbRecentOrderList", selectedTabId: "#tbRecentOrderList", isDynamicId: false, parentMenuContent: "Reports" });
+        //  tabUrlList.push({ url: "/customizedproduct/itemlistbysku", parentTabId: "#tbItemListBySku", selectedTabId: "#tbItemListBySku", isDynamicId: false, parentMenuContent: "Reports" });
+        //tabUrlList.push({ url: "/customizedproduct/itemlistbycode", parentTabId: "#tbItemListByCode", selectedTabId: "#tbItemListByCode", isDynamicId: false, parentMenuContent: "Reports" });
+        // tabUrlList.push({ url: "/customizedproduct/list", parentTabId: "#tbDesignHistory", selectedTabId: "#tbDesignHistory", isDynamicId: false, parentMenuContent: "Reports" });
+        tabUrlList.push({ url: "/customizedproduct/draftlist", parentTabId: "#tbDraftHistory", selectedTabId: "#tbDraftHistory", isDynamicId: false, parentMenuContent: "Reports" });
+        tabUrlList.push({ url: "/customizedproduct/emaillist", parentTabId: "#tbEmailHistory", selectedTabId: "#tbEmailHistory", isDynamicId: false, parentMenuContent: "Reports" });
+        tabUrlList.push({ url: "/customizedproduct/deletedlist", parentTabId: "#tbDeletedHistory", selectedTabId: "#tbDeletedHistory", isDynamicId: false, parentMenuContent: "Reports" });
+
+        /*Division*/
+        tabUrlList.push({ url: "/division/list", parentTabId: "#tbDivisionLink", selectedTabId: "#tbDivisionLink", isDynamicId: false, parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/division/edit/", parentTabId: "#tbDivisionLink", selectedTabId: "#tbDivisionLink", isDynamicId: false, parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/division/create", parentTabId: "#tbDivisionLink", selectedTabId: "#tbDivisionLink", isDynamicId: false, parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/division/setdivision", parentTabId: "#tbDivisionLink", selectedTabId: "#tbDivisionLink", isDynamicId: false, parentMenuContent: "Admin" });
+
+        /*Category*/
+        tabUrlList.push({ url: "/category/list", parentTabId: "#tbCategoryLink", selectedTabId: "#tbCategoryLink", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/category/create", parentTabId: "#tbCategoryLink", selectedTabId: "#tbCategoryLink", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/category/edit", parentTabId: "#tbCategoryLink", selectedTabId: "#tbCategoryLink", isDynamicId: false, parentMenuContent: "Merchandise" });
+
+        /*Company*/
+        tabUrlList.push({ url: "/company/companyuserlist", parentTabId: "#tbCompanyUserList", selectedTabId: "#tbCompanyUserList", isDynamicId: false, parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/company/edit/", parentTabId: "#tbCompanyUserList", selectedTabId: "#tbCompanyUserList", isDynamicId: false, parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/company/createuser", parentTabId: "#tbCompanyUserList", selectedTabId: "#tbCompanyUserList", isDynamicId: false, parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/company/editcompany", parentTabId: "#tbEditCompanyProfile", selectedTabId: "#tbEditCompanyProfile", isDynamicId: false, parentMenuContent: "Admin" });
+
+        /*Website*/
+        tabUrlList.push({ url: "/website/list", parentTabId: "#tbWebsiteLink", selectedTabId: "#tbWebsiteLink", isDynamicId: false, parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/website/edit/", parentTabId: "#tbWebsiteLink", selectedTabId: "#tbWebsiteEdit", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        //  tabUrlList.push({ url: "/website/websitebranding?", parentTabId: "#tbWebsiteLink", selectedTabId: "#tbWebsiteBranding", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting",  "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/website/create", parentTabId: "#tbWebsiteLink", selectedTabId: "#tbWebsiteLink", isDynamicId: false, parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/website/getassignunassignproducts?", parentTabId: "#tbWebsiteLink", selectedTabId: "#assignedProductInWebsite", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/website/changelayout?devicetypeid=1&", parentTabId: "#tbWebsiteLink", selectedTabId: "#webLayoutInWebsite", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        //tabUrlList.push({ url: "/website/changelayout?devicetypeid=2&", parentTabId: "#tbWebsiteLink", selectedTabId: "#mobileLayoutInWebsite", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/website/customfieldlist?", parentTabId: "#tbWebsiteLink", selectedTabId: "#websiteCustomField", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/website/createcustomfield?", parentTabId: "#tbWebsiteLink", selectedTabId: "#websiteCustomField", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/website/editcustomfield?", parentTabId: "#tbWebsiteLink", selectedTabId: "#websiteCustomField", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/printableimage/edit?", parentTabId: "#tbWebsiteLink", selectedTabId: "#PrintableImage", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/socialaccount/socialaccountsetting?", parentTabId: "#tbWebsiteLink", selectedTabId: "#SocialAccountSetting", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/advancefeature/advancefeatures?", parentTabId: "#tbWebsiteLink", selectedTabId: "#AdvanceFeaturesSetting", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/advancefeature/getfeaturesettings?", parentTabId: "#tbWebsiteLink", selectedTabId: "#AdvanceFeaturesSetting", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/applicationsetting/edit?", parentTabId: "#tbWebsiteLink", selectedTabId: "#ApplicationSetting", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/threedsetting/edit?", parentTabId: "#tbWebsiteLink", selectedTabId: "#TheeDServerSetting", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/analyticssettings/edit?", parentTabId: "#tbWebsiteLink", selectedTabId: "#AnalyticsSettings", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/outputsetting/createedit?", parentTabId: "#tbWebsiteLink", selectedTabId: "#OutputSetting", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/website/assignlayout?", parentTabId: "#tbWebsiteLink", selectedTabId: "#webLayoutInWebsite", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/website/assigncaption?", parentTabId: "#tbWebsiteLink", selectedTabId: "#WebLayoutAssignCaption", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/website/assignlayoutcss?", parentTabId: "#tbWebsiteLink", selectedTabId: "#WebLayoutAssignLayoutCssSetting", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/website/canvasfeature?", parentTabId: "#tbWebsiteLink", selectedTabId: "#WebsiteCanvasFeature", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+        tabUrlList.push({ url: "/website/customizecartjson?", parentTabId: "#tbWebsiteLink", selectedTabId: "#customizeCartJson", isDynamicId: true, dynIdElems: ["#tbWebsiteEdit", "#tbWebsiteBranding", "#assignedProductInWebsite", "#customizeCartJson", "#webLayoutInWebsite", "#mobileLayoutInWebsite", "#websiteCustomField", "#PrintableImage", "#SocialAccountSetting", "#AdvanceFeaturesSetting", "#ApplicationSetting", "#TheeDServerSetting", "#AnalyticsSettings", "#OutputSetting", "#WebLayoutAssignCaption", "#WebLayoutAssignLayoutCssSetting", "#WebsiteCanvasFeature"], dynVarName: "websiteid", dynShowHideElement: ".WebsiteSubLink", parentMenuContent: "Admin" });
+    /*One click Product Creation*/
+        tabUrlList.push({ url: "/productlist/list", parentTabId: "#tbProductCreationList", selectedTabId: "#tbProductCreationList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productlist/create", parentTabId: "#tbProductCreationList", selectedTabId: "#tbProductCreationList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productlist/edit", parentTabId: "#tbProductCreationList", selectedTabId: "#tbEditProductCreation", isDynamicId: true, dynIdElems: ["#tbEditProductCreation", "#tbDefineView", "#tbDefineVariant", "#tbUploadFile", "#apilaunchDesigner", "#tbUploadedFileList"], dynVarName: "productid", dynShowHideElement: ".ProductCreationSubLink", parentMenuContent: "Merchandise" });
+
+        tabUrlList.push({ url: "/productviewdetail/edit?", parentTabId: "#tbProductCreationList", selectedTabId: "#tbDefineView", isDynamicId: true, dynIdElems: ["#tbEditProductCreation", "#tbDefineView", "#tbDefineVariant", "#tbUploadFile", "#apilaunchDesigner", "#tbUploadedFileList"], dynVarName: "productid", dynShowHideElement: ".ProductCreationSubLink", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productlist3/edit", parentTabId: "#tbProductCreationList", selectedTabId: "#tbDefineVariant", isDynamicId: true, dynIdElems: ["#tbEditProductCreation", "#tbDefineView", "#tbDefineVariant", "#tbUploadFile", "#apilaunchDesigner", "#tbUploadedFileList"], dynVarName: "productid", dynShowHideElement: ".ProductCreationSubLink", parentMenuContent: "Merchandise" });
+
+        tabUrlList.push({ url: "/productattributevariant/edit", parentTabId: "#tbProductCreationList", selectedTabId: "#tbDefineVariant", isDynamicId: true, dynIdElems: ["#tbEditProductCreation", "#tbDefineView", "#tbDefineVariant", "#tbUploadFile", "#apilaunchDesigner", "#tbUploadedFileList"], dynVarName: "productid", dynShowHideElement: ".ProductCreationSubLink", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productlist2/edit", parentTabId: "#tbProductCreationList", selectedTabId: "#tbUploadFile", isDynamicId: true, dynIdElems: ["#tbEditProductCreation", "#tbDefineView", "#tbDefineVariant", "#tbUploadFile", "#apilaunchDesigner", "#tbUploadedFileList"], dynVarName: "productid", dynShowHideElement: ".ProductCreationSubLink", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productlist1/edit", parentTabId: "#tbProductCreationList", selectedTabId: "#apilaunchDesigner", isDynamicId: true, dynIdElems: ["#tbEditProductCreation", "#tbDefineView", "#tbDefineVariant", "#tbUploadFile", "#apilaunchDesigner", "#tbUploadedFileList"], dynVarName: "productid", dynShowHideElement: ".ProductCreationSubLink", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/downloadfiles/list", parentTabId: "#tbProductCreationList", selectedTabId: "#tbUploadedFileList", isDynamicId: true, dynIdElems: ["#tbEditProductCreation", "#tbDefineView", "#tbDefineVariant", "#tbUploadFile", "#apilaunchDesigner", "#tbUploadedFileList"], dynVarName: "productid", dynShowHideElement: ".ProductCreationSubLink", parentMenuContent: "Merchandise" });
+        /* End One click Product Creation*/
+        /*Product*/
+        tabUrlList.push({ url: "/product/list", parentTabId: "#tbProductList", selectedTabId: "#tbProductList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/product/create", parentTabId: "#tbProductList", selectedTabId: "#tbProductList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/product/edit", parentTabId: "#tbProductList", selectedTabId: "#tbEditProduct", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList,.ProductVaritntAngleList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/product/getassignunassignwebsites?", parentTabId: "#tbProductList", selectedTabId: "#tbAssigneWebsite", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList,.ProductVaritntAngleList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/product/designgallerylist?", parentTabId: "#tbProductList", selectedTabId: "#createDesignGallery", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+
+        tabUrlList.push({ url: "/grouppreview/create?", parentTabId: "#tbProductList", selectedTabId: "#groupedPreview", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/grouppreview/list?", parentTabId: "#tbProductList", selectedTabId: "#groupedPreview", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/grouppreview/edit", parentTabId: "#tbProductList", selectedTabId: "#groupedPreview", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+
+        tabUrlList.push({ url: "/groupviews/create?", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/groupviews/list?", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/groupviews/edit", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+
+        tabUrlList.push({ url: "/productview/viewarealist", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList,.ProductVaritntAngleList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productview/createview?", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productview/editview?", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productview/productviewdisplayorder?", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productview/create?", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productview/edit?", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productview/assigntemplate?", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productview/getartification?", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productview/editassigntemplate?", parentTabId: "#tbProductList", selectedTabId: "#tbCreateView", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+
+        tabUrlList.push({ url: "/productvariant/editvariant", parentTabId: "#tbProductList", selectedTabId: "#tbEditVariant", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productvariant/attributesetlist?", parentTabId: "#tbProductList", selectedTabId: "#tbEditVariant", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productvariant/productvariants?", parentTabId: "#tbProductList", selectedTabId: "#tbEditVariant", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/product/weblayout?", parentTabId: "#tbProductList", selectedTabId: "#tbWebLayout", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList,.ProductVaritntAngleList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        //tabUrlList.push({ url: "/product/mobilelayout?", parentTabId: "#tbProductList", selectedTabId: "#tbMobileLayout", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/product/customfieldlist?", parentTabId: "#tbProductList", selectedTabId: "#productCustomField", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList,.ProductVaritntAngleList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/product/createcustomfield?", parentTabId: "#tbProductList", selectedTabId: "#productCustomField", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/product/editcustomfield?", parentTabId: "#tbProductList", selectedTabId: "#productCustomField", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productview/variantviewlist?", parentTabId: "#tbProductList", selectedTabId: "#defineVariantViews", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynamicShowElement: ".ProductVaritntViewList", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productview/customizeview?", parentTabId: "#tbProductList", selectedTabId: "#defineVariantViews", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynamicShowElement: ".ProductVaritntViewList", parentMenuContent: "Merchandise" });
+        //***** variant basic details********//
+        tabUrlList.push({ url: "/productvariant/variantbasicdetails?", parentTabId: "#tbProductList", selectedTabId: "#productVariantBasicDetails", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynamicShowElement: ".ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+
+        tabUrlList.push({ url: "/productvariant/gettemplatelist", parentTabId: "#tbProductList", selectedTabId: "#tbEditVariant", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/productvariant/assigntemplate", parentTabId: "#tbProductList", selectedTabId: "#tbEditVariant", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+
+
+
+        tabUrlList.push({ url: "/angle/list", parentTabId: "#tbProductList", selectedTabId: "#angleField", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList", "#variatnAngleField"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList,.ProductVaritntAngleList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/angle/create?", parentTabId: "#tbProductList", selectedTabId: "#angleField", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList", "#variatnAngleField"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList,.ProductVaritntAngleList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/angle/edit", parentTabId: "#tbProductList", selectedTabId: "#angleField", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList,.ProductVaritntAngleList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/angle/angledisplayorderandname", parentTabId: "#tbProductList", selectedTabId: "#angleField", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList", "#variatnAngleField"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList,.ProductVaritntAngleList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+
+
+        tabUrlList.push({ url: "/angle/variantanglelist", parentTabId: "#tbProductList", selectedTabId: "#variatnAngleField", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList", "#variatnAngleField"], dynVarName: "productid", dynSubVarArray: ["variantid"], dynamicShowElement: ".ProductVaritntAngleList", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/angle/editvariantangle", parentTabId: "#tbProductList", selectedTabId: "#variatnAngleField", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList", "#variatnAngleField"], dynVarName: "productid", dynamicShowElement: ".ProductVaritntAngleList", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/angle/variantangledetails", parentTabId: "#tbProductList", selectedTabId: "#variatnAngleField", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList", "#variatnAngleField"], dynVarName: "productid", dynamicShowElement: ".ProductVaritntAngleList", parentMenuContent: "Merchandise" });
+
+        /*Variant Template Group*/
+        tabUrlList.push({ url: "/product/productvarianttemplategrouplist", parentTabId: "#tbProductList", selectedTabId: "#productVariantTemplateGroup", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynamicShowElement: ".ProductVariantTemplateList", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/product/variantassigntemplategroup", parentTabId: "#tbProductList", selectedTabId: "#productVariantTemplateGroup", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynamicShowElement: ".ProductVariantTemplateList", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/product/varianttemplatemapping", parentTabId: "#tbProductList", selectedTabId: "#productVariantTemplateGroup", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynamicShowElement: ".ProductVariantTemplateList", parentMenuContent: "Merchandise" });
+
+
+        /*Product template group*/
+        tabUrlList.push({ url: "/product/producttemplategrouplist", parentTabId: "#tbProductList", selectedTabId: "#productTemplateGroup", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList,.ProductVaritntAngleList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/product/producttemplategroupcreate?", parentTabId: "#tbProductList", selectedTabId: "#productTemplateGroup", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/product/producttemplategroupedit", parentTabId: "#tbProductList", selectedTabId: "#productTemplateGroup", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/product/assigntemplategroup", parentTabId: "#tbProductList", selectedTabId: "#productTemplateGroup", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/product/producttemplatemapping", parentTabId: "#tbProductList", selectedTabId: "#productTemplateGroup", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/templategroup/templategroupdisplayorder?", parentTabId: "#tbProductList", selectedTabId: "#productTemplateGroup", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#createDesignGallery", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynamicShowElement: ".TemplateGroupDisplayOrder", parentMenuContent: "Merchandise" });
+
+        /*Custom Data List*/
+        tabUrlList.push({ url: "/customdata/create", parentTabId: "#tbProductList", selectedTabId: "#createCustomDataList", isDynamicId: true, dynIdElems: ["#tbEditProduct", "#tbAssigneWebsite", "#tbCreateView", "#tbEditVariant", "#tbWebLayout", "#tbMobileLayout", "#productCustomField", "#angleField", "#productTemplateGroup", "#groupedPreview", "#createCustomDataList"], dynVarName: "productid", dynShowHideElement: ".ProductSubLink", dynamicHideElement: ".ProductVaritntViewList, .ProductVariantTemplateList,.ProductVariantBasicDetails", parentMenuContent: "Merchandise" });
+
+        /*Account*/
+        tabUrlList.push({
+            url: "/account/index", parentTabId: "#tbAccountDetail", selectedTabId: "#tbAccountDetail", isDynamicId: true, dynamicShowElement: "#tbChangePassword"
+        });
+        tabUrlList.push({
+            url: "/account/changepassword", parentTabId: "#tbChangePassword", selectedTabId: "#tbChangePassword", isDynamicId: true, dynamicShowElement: "#tbAccountDetail"
+        });
+
+        /*ImportExport*/
+        tabUrlList.push({
+            url: "/product/importexport", parentTabId: "#tbimportExport", selectedTabId: "#tbimportExport", isDynamicId: false, parentMenuContent: "ImportExport"
+        });
+
+        /*Bulk Upload*/
+        tabUrlList.push({ url: "/imageupload/imageupload", parentTabId: "#tbBulkUploadLink", selectedTabId: "#tbImagegUpload", isDynamicId: false, parentMenuContent: "BulkUpload" });
+        //    tabUrlList.push({ url: "/imageupload/editbulkimageupload", parentTabId: "#tbBulkUploadLink", selectedTabId: "#tbEditImageLink", isDynamicId: false, parentMenuContent: "BulkUpload"
+        //});
+        //     tabUrlList.push({ url: "/imageupload/deletebulkimageupload", parentTabId: "#tbBulkUpload", selectedTabId: "#tbDeleteImageLink", isDynamicId: false, parentMenuContent: "BulkUpload" });
+        tabUrlList.push({ url: "/csvupload/csvupload", parentTabId: "#tbBulkUploadLink", selectedTabId: "#tbCsvUpload", isDynamicId: false, parentMenuContent: "BulkUpload" });
+        tabUrlList.push({ url: "/bulkupload/bulkupload", parentTabId: "#tbBulkUploadLink", selectedTabId: "#tbCsvUpload", isDynamicId: false, parentMenuContent: "BulkUpload" });
+        tabUrlList.push({ url: "/bulkupload/createbulkuploadtemplate", parentTabId: "#tbBulkUploadLink", selectedTabId: "#tbAdminCsvUpload", isDynamicId: false, parentMenuContent: "BulkUpload" });
+        tabUrlList.push({ url: "/exportcsv/list", parentTabId: "#tbBulkUploadLink", selectedTabId: "#tbExportCsv", isDynamicId: false, parentMenuContent: "BulkUpload" });
+        tabUrlList.push({ url: "/storagedashboard/index", parentTabId: "#tbStorageDashboard", selectedTabId: "#tbStorageDashboardChart", isDynamicId: false, parentMenuContent: "Reports" });
+
+
+
+
+        /*Audio*/
+        tabUrlList.push({ url: "/audio/audiofamilylist", parentTabId: "#tbAudioLink", selectedTabId: "#tbAudioFamilyList", isDynamicId: true, dynShowHideElement: ".AudioTab", dynamicShowElement: "#tbAudioFamilyList", dynamicHideElement: ".DynamicShowHide", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/audio/createaudiofamily", parentTabId: "#tbAudioLink", selectedTabId: "#tbAudioFamilyList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/audio/editaudiofamily/", parentTabId: "#tbAudioLink", selectedTabId: "#tbAudioFamilyEdit", isDynamicId: true, dynIdElems: ["#manageAudios", "#tbAudioFamilyEdit"], dynVarName: "audiofamilyid", dynamicShowElement: ".DynamicShowHide", dynamicHideElement: "#tbAudioFamilyList", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/audio/manageaudios/", parentTabId: "#tbAudioLink", selectedTabId: "#manageAudios", isDynamicId: true, dynIdElems: ["#manageAudios", "#tbAudioFamilyEdit"], dynVarName: "audiofamilyid", dynamicShowElement: ".DynamicShowHide", dynamicHideElement: "#tbAudioFamilyList", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/audio/createaudio?", parentTabId: "#tbAudioLink", selectedTabId: "#manageAudios", isDynamicId: true, dynIdElems: ["#manageAudios", "#tbAudioFamilyEdit"], dynVarName: "audiofamilyid", dynamicShowElement: ".DynamicShowHide", dynamicHideElement: "#tbAudioFamilyList", parentMenuContent: "Merchandise" });
+
+        /*Design Set*/
+        tabUrlList.push({ url: "/designset/list", parentTabId: "#tbDesignSetLink", selectedTabId: "#tbDesignSetLink", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/designset/create", parentTabId: "#tbDesignSetLink", selectedTabId: "#tbDesignSetLink", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/designset/edit", parentTabId: "#tbDesignSetLink", selectedTabId: "#tbDesignSetLink", isDynamicId: false, parentMenuContent: "Merchandise" });
+
+        /*ClientCode*/
+        tabUrlList.push({ url: "/clientcode/list", parentTabId: "#tbClientCodeLink", selectedTabId: "#tbClientCode", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/clientcode/create", parentTabId: "#tbClientCodeLink", selectedTabId: "#tbClientCode", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/clientcode/edit/", parentTabId: "#tbClientCodeLink", selectedTabId: "#tbClientCode", isDynamicId: false, dynamicHideElement: "#TemplateGroupCreate,#TemplateGroupEdit", parentMenuContent: "Merchandise" });
+
+
+        /*DecorationMethod*/
+        tabUrlList.push({ url: "/decorationmethod/list", parentTabId: "#tbDecorationMethodLink", selectedTabId: "#tbDecorationMethodList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/decorationmethod/createdecorationmethod", parentTabId: "#tbDecorationMethodLink", selectedTabId: "#tbDecorationMethodList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/decorationmethod/list", parentTabId: "#tbDecorationMethodLink", selectedTabId: "#tbDecorationMethodList", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/decorationmethod/edit/", parentTabId: "#tbDecorationMethodLink", selectedTabId: "#tbDecorationMethodList", isDynamicId: false, parentMenuContent: "Merchandise" });
+
+
+        /*SpotColor*/
+        tabUrlList.push({ url: "/spotcolor/list", parentTabId: "#tbSpotColorLink", selectedTabId: "#tbSpotColor", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/spotcolor/create", parentTabId: "#tbSpotColorLink", selectedTabId: "#tbSpotColor", isDynamicId: false, parentMenuContent: "Merchandise" });
+        tabUrlList.push({ url: "/spotcolor/edit/", parentTabId: "#tbSpotColorLink", selectedTabId: "#tbSpotColor", isDynamicId: false, parentMenuContent: "Merchandise" });
+
+        /*Highlight Selected/Parent Tab*/
+        TabSelector.HighlightHref(tabUrlList, url);
+    },
+
+    HighlightHref: function (tabUrlList, url) {
+        var selectedTabId = null; /* For Highlight Selected Href*/
+        var parentTabId = null; /*For Highlight Parent Href*/
+        var isDynId = false; /* Return true if its dynamic */
+        var dynVarName = null; /* For Set Dynamic ids, like productid, websiteid, folderid etc */
+        var dynElemIdArray = null; /* For Dynamic Anchor ids */
+        var dynShowHideElement = null; /*For Show and hide url (toggle)*/
+        var dynHideElement = null; /* For Show perticular url*/
+        var dynShowElement = null; /*For Hide Perticular url*/
+        var parentMenuContent = null; /*For Top level menu items element */
+
+        $.each(tabUrlList, function (elementIndex, element) {
+
+            if (url.indexOf(element.url) > -1) {
+
+                parentTabId = element.parentTabId;
+                selectedTabId = element.selectedTabId;
+                parentMenuContent = element.parentMenuContent;
+                if (element.isDynamicId == true) {
+                    isDynId = element.isDynamicId;
+                    dynVarName = element.dynVarName;
+                    dynElemIdArray = element.dynIdElems;
+                    dynShowHideElement = element.dynShowHideElement;
+                    dynHideElement = element.dynamicHideElement;
+                    dynShowElement = element.dynamicShowElement;
+                }
+            }
+        });
+
+        /*First of all, hide all grand parents*/
+        $(".GrandParent").addClass("HideMenu").removeClass("ShowMenu");
+        $(selectedTabId).closest(".GrandParent").removeClass("HideMenu").addClass("ShowMenu");
+
+        /*First of all, set all parent tab is disply none*/
+        $(parentTabId).closest('.GrandParent').children("div").css("display", "none");
+
+        /*Set Disply block for selected tab and corresponding parent tab*/
+        $(selectedTabId).closest("div").css("display", "block");
+        $(parentTabId).closest("div").css("display", "block");
+
+        /*First of all, set all GrantParent children div is inactive*/
+        $(".GrandParent").children("div").removeClass("ActiveTab").addClass("InactiveTab");
+
+        /*Set Parent tab is active*/
+        $(parentTabId).closest("div").removeClass("InactiveTab").addClass("ActiveTab");
+        /*First of all, set all selected tab is un selected*/
+        // $(selectedTabId).closest('div').children().children("li").removeClass("Selected");
+        $(selectedTabId).closest('div').children().find("li").removeClass("Selected");
+
+        /*Add selected class for perticulart selected tab*/
+        $(selectedTabId).closest("li").addClass("Selected");
+
+        /*For Top level menu highlight*/
+        if (parentMenuContent != null) {
+            $(".MainMenu li[data-content]").removeClass("Selected");
+            $(".MainMenu li[data-content=" + parentMenuContent + "]").addClass('Selected');
+        }
+
+        /*For Sub Menu Hide*/
+        if (!$(selectedTabId).closest('ul').hasClass('sub-menu')) {
+            $('#SubMenuHideShow,#SubMenuHideShowWebLayout').hide();
+        }
+
+        if (!$(selectedTabId).closest('ul').hasClass('sub-menu-tg')) {
+            $('.TabContent ul li ul.sub-menu-tg li').css("display", "none");
+        }
+
+        if (dynShowElement != null) {
+            $(dynShowElement).css("display", "block");
+        }
+        if (dynHideElement != null) {
+            $(dynHideElement).css("display", "none");
+            /*This is for hiding template group sub menu*/
+            if ($(dynHideElement).closest('ul').hasClass('sub-menu-tg')) {
+                $(dynHideElement).closest('li').css("display", "none");
+            }
+        }
+        if (dynShowHideElement != null) {
+            $(dynShowHideElement).css("display", "none");
+        }
+
+        /*Set dynamic tab highligt and set required ids*/
+        if (isDynId == true) {
+            $(dynShowHideElement).css("display", "block");
+            TabSelector.SubLinksHrefHandler(url, dynVarName, dynElemIdArray, tabUrlList);
+        }
+    },
+
+    SubLinksHrefHandler: function (url, dataId, anchorArray, tabUrlList) {
+        var browserUrl = new jurl(url);
+        var Id = browserUrl.getQueryParameter(dataId);
+        if (Id == null) {
+            Id = url.substring(url.lastIndexOf('/') + 1).match(/\d+/);
+        }
+        if ($.isNumeric(Id)) {
+            if (typeof anchorArray != typeof undefined || anchorArray != null) {
+                for (var i = 0; i < anchorArray.length; i++) {
+                    var anchor = $(anchorArray[i]).attr('data-href');
+                    var fullHref = anchor + Id;
+                    fullHref = TabSelector.GetUrlBySubparamters(fullHref, tabUrlList, anchorArray[i], url);
+                    $(anchorArray[i]).prop('href', fullHref);
+                }
+            }
+        }
+    },
+
+    /* Function is used to Add Extra Paramters */
+    GetUrlBySubparamters: function (fullHref, tabUrlList, anchorTab, url) {
+        var browserUrl = new jurl(url);
+        var selectedTabList = tabUrlList.filter(function (x) {
+            return x.selectedTabId == anchorTab;
+        });
+        if (!$.isEmptyObject(selectedTabList)) {
+            selectedTabList = selectedTabList[0];
+            var dynSubVarArray = selectedTabList.dynSubVarArray;
+            if (!$.isEmptyObject(dynSubVarArray)) {
+                $.each(dynSubVarArray, function (key, value) {
+                    var paramterValue = TabSelector.getQueryParameterByName(url, value);
+                    if (paramterValue != "") {
+                        fullHref = fullHref + "&" + value + "=" + paramterValue;
+                    }
+                });
+            }
+        }
+        return fullHref;
+    },
+
+    /* Get Paramter value from Url */
+    getQueryParameterByName: function (url, name) {
+        if (!url) {
+            url = window.location.href;
+        }
+        url = url.toLowerCase();
+        name = name.toLowerCase();
+        name = name.replace(/[\[\]]/g, "\\$&");
+        var regex = new RegExp("[?&]*" + name + "(=([^&#]*)|&|#|$)"),
+            results = regex.exec(url);
+        if (!results) return null;
+        if (!results[2]) return '';
+        return decodeURIComponent(results[2].replace(/\+/g, " "));
+    },
+
+    MainFunction: function (path) {
+        var url = (path || window.location.href).toLowerCase();
+
+        TabSelector.HighlightSideTab(url);
+    },
+}
+
+UrlHelper = {
+    RemoveHash: function (url) {
+        var index = url.indexOf('#');
+        if (index >= 0) {
+            url = url.substring(0, index);
+        }
+        return url;
+    }
+}
+/******************************************************************* Document ready ***************************************************************/
+
+jQuery(document).ready(function () {
+    SpacebarHandler();
+    SetFocusOnFirstField();
+    Notifications.Display();
+    SetTabIndex();
+    $('.CheckBoxContainer').live("click", CheckboxStyleHandler);
+    $('label.RadioLabel').live("click", RadioBtnStyleHandler);
+
+});
+
+
+$(window).load(function () {
+    TabSelector.MainFunction();
+
+    $(".Tab").not(".Parent").click(function (e) {
+        e.preventDefault();
+        var href = $(this).find("a").attr('href');
+        var isDeeplink = $(this).find("a").attr('rel');
+        if (isDeeplink == "deepLink") {
+            DeepLinking.navigateDeepLinkUrl(href);
+            return;
+        }
+
+        if (href != "#")
+            window.location.href = $(this).find("a").attr('href');
+    });
+
+    StyleHandler.SetHeaderSectionWidth();
+    StyleHandler.SetRightSectionWidth();
+    StyleHandler.SetHeaderWidth();
+    StyleHandler.SetProductViewRightSection();
+});
+
+$(window).scroll(function () {
+    StyleHandler.SetRightSectionWidth();
+    StyleHandler.SetHeaderWidth();
+    StyleHandler.SetProductViewRightSection();
+    StyleHandler.SetHeaderSectionWidth();
+
+});
+
+$(window).resize(function () {
+    StyleHandler.SetRightSectionWidth();
+    StyleHandler.SetHeaderWidth();
+    StyleHandler.SetProductViewRightSection();
+    StyleHandler.SetHeaderSectionWidth();
+
+});
+
+/*************************************************************************************************************************************************/
+
+
+//*************************************************************************** Start DeepLink Region ****************************************************************************************
+var IsFirstLoad = true;
+state = window.history.pushState !== undefined;
+var browser = getBrowser();
+DeepLinking = {
+
+    // This function is used to 'Initializes' deeplink plugin.
+    deepLinkHelper: function () {
+        if (DeepLinking.IsActive()) {
+            if ($.address != undefined) {
+                $.address.state('/').init(function (event) {
+                    // Initializes the plugin
+                    DeepLinking.refreshDeepLinks();
+                }).change(function (event) {
+                    var value = $.address.state().replace(/^\/$/, '') + event.value;
+                    DeepLinking.deeplinkUrlHelper(value);
+                });
+            }
+        }
+    },
+    // When user want to redirect to 'same page' means on same url from spacified link this function will be useful.
+    deeplinkUrlHelper: function (url) {
+        var value = url;
+        value = DeepLinking.splitUrlInDeeplinkFormat(value);
+        if (!window.location.origin) {
+            window.location.origin = window.location.protocol + "//" + window.location.host;
+        }
+
+        if (value != "/") {
+            var absoluteUrl = window.location.origin + value;
+            TabSelector.MainFunction(absoluteUrl);
+        }
+
+        value = DeepLinking.makeUrlDeepLink(value);
+        if (state && IsFirstLoad) {
+            IsFirstLoad = false;
+        } else {
+            // Loads and populates the page data
+            startLoading();
+            $.ajax({
+                cache: false,
+                complete: ajaxRequestHandler,
+                url: value,
+                error: AjaxErrorHandler
+            });
+        }
+        return false;
+    },
+
+    // This function is useful when user wants to check upcoming 'XMLHttpRequest' request is 'deeplink' or not.
+    isDeeplinkResponse: function (XMLHttpRequest) {
+        var isDeeplinkResp = false;
+        if (XMLHttpRequest.title != "" && XMLHttpRequest.title != undefined && XMLHttpRequest.title != "undefined") {
+            isDeeplinkResp = true;
+        }
+        return isDeeplinkResp;
+    },
+
+
+    // This function append 'isDeeplink' attribute to url.
+    makeUrlDeepLink: function (value) {
+        value += (value.indexOf("?") < 0) ? "?" : "&";
+        if (value.indexOf("isDeeplink") == -1)
+            value = value + "isDeeplink=true";
+        return value;
+    },
+
+    // When user want to redirect to diferent page this function will be useful.
+    navigateDeepLinkUrl: function (url) {
+        var browserUrl = DeepLinking.splitUrlInDeeplinkFormat(window.location.href);
+        url = UrlHelper.RemoveHash(url);
+        browserUrl = UrlHelper.RemoveHash(browserUrl);
+        if (url == browserUrl) {
+            DeepLinking.deeplinkUrlHelper(url);
+        }
+        else {
+            if (DeepLinking.IsActive(isDeeplinkAllowedInConfig)) {
+                $.address.value(DeepLinking.splitUrlInDeeplinkFormat(url));
+            }
+            else {
+                window.location.href = url;
+            }
+        }
+    },
+
+    // This function is useful when user want to get 'href' from full url or given url.
+    splitUrlInDeeplinkFormat: function (url) {
+        var splitUrl = url;
+        if (location.port != "" && location.port != undefined) {
+            splitUrl = splitUrl.split(location.port);
+        }
+        else if (location.host != "" && location.host != undefined) {
+            splitUrl = splitUrl.split(location.host);
+        }
+        if (splitUrl.length > 1) {
+            url = splitUrl[1];
+        }
+        return url;
+    },
+
+    // This function is useful to bind and unbind click event of anchor link whose 'rel' attribute is 'deeplink'
+    refreshDeepLinks: function () {
+        if (HasDeeplinkSupport()) {
+            $("a[rel='deepLink']").off("click");
+            $("a[rel='deepLink']").on("click", function (e) {
+                if (DeepLinking.IsActive(isDeeplinkAllowedInConfig)) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    DeepLinking.navigateDeepLinkUrl($(this).attr('href'));
+                }
+            });
+        }
+    },
+    // This function is useful when user want to display 'model errors' without reloading 'right content section'.
+    DisplayModelErrors: function (errors) {
+        Notifications.CloseDisplayBox();
+        DeepLinking.ClearModelErrors();
+        for (var i = 0; i < errors.length; i++) {
+            $("span[data-valmsg-for='" + errors[i].Key + "']")
+                .html(errors[i].Value[0]);
+            $("span[data-valmsg-for='" + errors[i].Key + "']").removeClass('field-validation-valid').addClass('field-validation-error');
+        }
+    },
+
+    // This function is useful when user want to clear 'model errors' without reloading 'right content section'.
+    ClearModelErrors: function () {
+        $("span[data-valmsg-for]").html("");
+        $("span[data-valmsg-for]").removeClass('field-validation-error').addClass('field-validation-valid');
+    },
+
+
+    // This function is useful to remove all the event of all controls in 'right content section'.
+    RemoveContentSectionEvents: function () {
+        $(".RightSection").find("*").unbind();
+    },
+
+    // This function useful to load response data in right section.
+    ReplaceContentSection: function (contentResponse) {
+        //RemoveContentSectionEvents();
+
+        if ($('.RightSection').length) {
+            $('.RightSection').html(contentResponse);
+        }
+        else {
+            window.location.href = "";
+        }
+        DeepLinking.AfterRightContentLoad();
+    },
+
+
+    // This function useful to 'perform any action' after 'right content' section loaded.
+    AfterRightContentLoad: function () {
+
+        jQueryUnobstrusiveInit(jQuery);
+        Notifications.Display();
+        if ($.validator) {
+            $.validator.unobtrusive.refresh('form');
+        }
+        DeepLinking.refreshDeepLinks();
+
+        StyleHandler.SetRightSectionWidth();
+        StyleHandler.SetHeaderWidth();
+        StyleHandler.SetProductViewRightSection();
+        SpacebarHandler();
+        charControl();
+        SetTabIndex();
+    },
+
+    IsActive: function () {
+        if (browser.toUpperCase() != "IE" && isDeeplinkAllowedInConfig == "true" && DeepLinking.DoesUrlSupportDeeplink()) {
+            return true;
+        }
+        return false;
+    },
+
+    DoesUrlSupportDeeplink: function () {
+        if (window.location.href.toLowerCase().indexOf("/productvariant/editvariant") > 0 || DeepLinking.DoesUrlIsListPage(window.location.href.toLowerCase())) {
+            return false;
+        }
+        return true;
+    },
+
+    DoesUrlIsListPage: function (url) {
+        var urlSplitData = url.split('?');
+        if (urlSplitData.length >= 1) {
+            urlSplitData[0] = urlSplitData[0].replace("https://", "").replace("http://", "");
+            urlSplitData = urlSplitData[0].split('/');
+        }
+        if (urlSplitData.length >= 3) {
+            for (var i = 0; i < excludeDeelinkingList.length; i++) {
+                if (excludeDeelinkingList[i].toLowerCase() == urlSplitData[2].toLowerCase()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+}
+
+// This function handles response on 'Get and Post' Action. 
+function deepLinkResponseHandler() {
+
+    $(document).ready(function () {
+
+        var init = true,
+            state = window.history.pushState !== undefined;
+        //Handles response on ajax submit
+        saveSuccessHandler = function (XMLHttpRequest, textStatus) {
+
+            if (!XMLHttpRequest.isLoaderContinue) {
+                stopLoading();
+            }
+
+
+            if (XMLHttpRequest.redirectUrl != "" && XMLHttpRequest.redirectUrl != undefined && XMLHttpRequest.redirectUrl != typeof undefined) {
+                DeepLinking.navigateDeepLinkUrl(XMLHttpRequest.redirectUrl);
+            } else {
+                var XMLHttpRequestObj = new Object();
+                XMLHttpRequestObj.responseText = XMLHttpRequest;
+                ajaxRequestHandler(XMLHttpRequestObj, textStatus, true);
+            }
+        }
+
+
+        // Handles deeplink response
+        ajaxRequestHandler = function (XMLHttpRequestObj, textStatus, IsForm) {
+            stopLoading();
+
+            var xmlResponseText = XMLHttpRequestObj.responseText;
+            if (typeof xmlResponseText !== typeof undefined && xmlResponseText != "" && xmlResponseText != null) {
+
+                try {
+                    if (IsForm === "" || IsForm == null || typeof IsForm === typeof undefined) IsForm = false;
+
+                    var data;
+                    if (IsForm) {
+                        data = xmlResponseText;
+                    } else {
+                        data = $.parseJSON(xmlResponseText);
+                    }
+
+                    if (!IsForm) {
+                        if ($.address.baseURL() != window.location) {
+                            window.history.pushState({
+                                path: xmlResponseText.href
+                            }, '', xmlResponseText.href);
+                        }
+                    }
+
+                    if (data.redirectUrl != "" && data.redirectUrl != undefined && data.redirectUrl != typeof undefined) {
+                        DeepLinking.navigateDeepLinkUrl(data.redirectUrl);
+                        return;
+                    }
+                    var pageTitle = data.title;
+                    var contentResponse = DecodeContentData(data.content);
+                    var isSuccess = data.isSuccess;
+                    $.address.title(pageTitle);
+
+                    if (contentResponse != "" && typeof contentResponse !== typeof undefined && contentResponse != null) {
+                        DeepLinking.ReplaceContentSection(contentResponse);
+                    } else {
+                        if (typeof data.status === typeof undefined) {
+                            console.log("else of data.status 1" + e);
+                            AjaxErrorHandler(e);
+                        }
+                    }
+
+                    if (typeof data.status !== typeof undefined && data.status == "error") {
+                        if (typeof data.message !== typeof undefined && data.message != "") {
+                            Notifications.DisplayHelper(data.message, "error");
+                        } else {
+                            console.log("else of data.status 2" + e);
+                            Notifications.DisplayHelper("An error occurred while processing the requested page. Try again. If the problem persist, contact site admin.", "error");
+                        }
+                        stopLoading();
+                    }
+                } catch (e) {
+                    AjaxErrorHandler(e);
+                    console.log("try block" + e);
+                }
+            } else {
+                AjaxErrorHandler(e);
+                console.log("else of xmlResponseText" + e);
+            }
+
+
+        };
+        DeepLinking.AfterRightContentLoad();
+
+        AjaxErrorHandler = function (e) {
+            if (e.status != 401) {
+                Notifications.DisplayHelper("An unexpected link error occurred while processing. Try again. If the problem persist, contact site admin.", "error");
+                stopLoading();
+            }
+        }
+    });
+
+    DeepLinking.deepLinkHelper();
+    StyleHandler.SetHeaderSectionWidth();
+    StyleHandler.SetRightSectionWidth();
+    StyleHandler.SetHeaderWidth();
+    StyleHandler.SetProductViewRightSection();
+}
+
+
+function DecodeContentData(data) {
+    var contentData = $('<div/>').html(data).text();
+    return contentData;
+}
+
+function HasDeeplinkSupport() {
+    if ($('.RightSection').length) {
+        return true;
+    }
+    return false;
+}
+
+
+
+
+//*************************************************************************************End Deeplink Region*************************************************************
+
+
+StyleHandler = {
+
+
+
+    SetRightSectionWidth: function () {
+
+        var leftSection = $(".LeftSection");
+        if (leftSection.length) {
+            var leftSectionWidth = parseInt((leftSection).css('width').match(/\d+/)[0]) + 45;
+            var windowWidth = $(window).width();
+
+            var rightSectionWidth = parseInt(windowWidth) - parseInt(leftSectionWidth);
+
+            if (leftSectionWidth + rightSectionWidth < 956) {
+                rightSectionWidth = 956 - leftSectionWidth;
+            }
+
+        }
+    },
+
+    SetHeaderSectionWidth: function () {      // script for one column layout----//  
+
+        var oneColumn = $(".HeaderSection");
+        if (oneColumn.length) {
+            var leftWidth = 202 + 37 + 23;       //   Artifi-header-logo width -> 202
+            var windowWidth = $(window).width();
+
+            var headerWidth = parseInt(windowWidth) - parseInt(leftWidth);
+
+            if (headerWidth + leftWidth < 1000) {
+                headerWidth = 1000 - leftWidth;
+            }
+
+        }
+    },
+
+    SetHeaderWidth: function () {
+
+        var leftSection = $(".LeftSection");
+        if (leftSection.length) {
+            var leftWidth = 202 + 37 + 23;       //   Artifi-header-logo width -> 202
+            var windowWidth = $(window).width();
+
+            var headerWidth = parseInt(windowWidth) - parseInt(leftWidth);
+
+            if (headerWidth + leftWidth < 1000) {
+                headerWidth = 1000 - leftWidth;
+            }
+
+        }
+    },
+
+    SetProductViewRightSection: function () {
+        var rightSection = $(".RightSection");
+        if (rightSection.length) {
+            var rightSectionWidth = parseInt((rightSection).css('width').match(/\d+/)[0]);
+            if (rightSection.length) {
+                var width = rightSectionWidth - 200;
+                width = width + "px";
+                $("#left-container").css('width', width);
+            }
+        }
+    },
+
+    GetViewLeftContainerWidth: function () {
+        var rightSection = $(".RightSection");
+        var rightSectionWidth = rightSection.width();
+        var width = "";
+        if (rightSection.length) {
+            var width = rightSectionWidth - 200;
+            width = width + "px";
+        }
+        return width;
+    },
+
+    GetViewRightSectionWidth: function () {
+        var width = "";
+        if ($(".RightSection").length) {
+            width = $(".RightSection").width() + "px";
+        }
+        return width;
+    }
+}
+
+
+
+/*Get Browser Type*/
+function getBrowser() {
+
+    var ua = navigator.userAgent.toLowerCase();
+    var check = function (r) {
+        return r.test(ua);
+    };
+    var DOC = document;
+    var isStrict = DOC.compatMode == "CSS1Compat";
+    var isOpera = check(/opera/);
+    var isChrome = check(/chrome/);
+    var isWebKit = check(/webkit/);
+    var isSafari = !isChrome && check(/safari/);
+    var isSafari2 = isSafari && check(/applewebkit\/4/); // unique to
+    // Safari 2
+    var isSafari3 = isSafari && check(/version\/3/);
+    var isSafari4 = isSafari && check(/version\/4/);
+    var isIE = !isOpera && check(/msie/);
+    var isIE7 = isIE && check(/msie 7/);
+    var isIE8 = isIE && check(/msie 8/);
+    var isIE6 = isIE && !isIE7 && !isIE8;
+    var isGecko = !isWebKit && check(/gecko/);
+    var isGecko2 = isGecko && check(/rv:1\.8/);
+    var isGecko3 = isGecko && check(/rv:1\.9/);
+    var isBorderBox = isIE && !isStrict;
+    var isWindows = check(/windows|win32/);
+    var isMac = check(/macintosh|mac os x/);
+    var isAir = check(/adobeair/);
+    var isLinux = check(/linux/);
+    var isSecure = /^https/i.test(window.location.protocol);
+    var isIE7InIE8 = isIE7 && DOC.documentMode == 7;
+
+    var jsType = '',
+        browserType = '',
+        browserVersion = '',
+        osName = '';
+    var ua = navigator.userAgent.toLowerCase();
+    var check = function (r) {
+        return r.test(ua);
+    };
+
+    if (isWindows) {
+        osName = 'Windows';
+
+        if (check(/windows nt/)) {
+            var start = ua.indexOf('windows nt');
+            var end = ua.indexOf(';', start);
+            osName = ua.substring(start, end);
+        }
+    } else {
+        osName = isMac ? 'Mac' : isLinux ? 'Linux' : 'Other';
+    }
+
+    if (isIE) {
+        browserType = 'IE';
+        jsType = 'IE';
+
+        var versionStart = ua.indexOf('msie') + 5;
+        var versionEnd = ua.indexOf(';', versionStart);
+        browserVersion = ua.substring(versionStart, versionEnd);
+
+        jsType = isIE6 ? 'IE6' : isIE7 ? 'IE7' : isIE8 ? 'IE8' : 'IE';
+    } else if (isGecko) {
+        var isFF = check(/firefox/);
+        browserType = isFF ? 'Firefox' : 'Others';;
+        jsType = isGecko2 ? 'Gecko2' : isGecko3 ? 'Gecko3' : 'Gecko';
+
+        if (isFF) {
+            var versionStart = ua.indexOf('firefox') + 8;
+            var versionEnd = ua.indexOf(' ', versionStart);
+            if (versionEnd == -1) {
+                versionEnd = ua.length;
+            }
+            browserVersion = ua.substring(versionStart, versionEnd);
+        }
+    } else if (isChrome) {
+        browserType = 'Chrome';
+        jsType = isWebKit ? 'Web Kit' : 'Other';
+
+        var versionStart = ua.indexOf('chrome') + 7;
+        var versionEnd = ua.indexOf(' ', versionStart);
+        browserVersion = ua.substring(versionStart, versionEnd);
+    } else {
+        browserType = isOpera ? 'Opera' : isSafari ? 'Safari' : '';
+    }
+
+    return browserType;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+var findEventHandlers = function (eventType, jqSelector) {
+    var results = [];
+    var $ = jQuery;// to avoid conflict between others frameworks like Mootools
+
+    var arrayIntersection = function (array1, array2) {
+        return $(array1).filter(function (index, element) {
+            return $.inArray(element, $(array2)) !== -1;
+        });
+    };
+
+    var haveCommonElements = function (array1, array2) {
+        return arrayIntersection(array1, array2).length !== 0;
+    };
+
+
+    var addEventHandlerInfo = function (element, event, $elementsCovered) {
+        var extendedEvent = event;
+        if ($elementsCovered !== void 0 && $elementsCovered !== null) {
+            $.extend(extendedEvent, { targets: $elementsCovered.toArray() });
+        }
+        var eventInfo;
+        var eventsInfo = $.grep(results, function (evInfo, index) {
+            return element === evInfo.element;
+        });
+
+        if (eventsInfo.length === 0) {
+            eventInfo = {
+                element: element,
+                events: [extendedEvent]
+            };
+            results.push(eventInfo);
+        } else {
+            eventInfo = eventsInfo[0];
+            eventInfo.events.push(extendedEvent);
+        }
+    };
+
+
+    var $elementsToWatch = $(jqSelector);
+    if (jqSelector === "*")//* does not include document and we might be interested in handlers registered there
+        $elementsToWatch = $elementsToWatch.add(document);
+    var $allElements = $("*").add(document);
+
+    $.each($allElements, function (elementIndex, element) {
+        var allElementEvents = $._data(element, "events");
+        if (allElementEvents !== void 0 && allElementEvents[eventType] !== void 0) {
+            var eventContainer = allElementEvents[eventType];
+            $.each(eventContainer, function (eventIndex, event) {
+                var isDelegateEvent = event.selector !== void 0 && event.selector !== null;
+                var $elementsCovered;
+                if (isDelegateEvent) {
+                    $elementsCovered = $(event.selector, element); //only look at children of the element, since those are the only ones the handler covers
+                } else {
+                    $elementsCovered = $(element); //just itself
+                }
+                if (haveCommonElements($elementsCovered, $elementsToWatch)) {
+                    addEventHandlerInfo(element, event, $elementsCovered);
+                }
+            });
+        }
+    });
+
+    return results;
+};
+
+$(document).on('click', ".CloseBtn", function () {
+
+    $('html').css('overflow', 'auto');
+    $("#popup_overlay").css("display", "none");
+    $("#popup_container").css("display", "none");
+});
+
+function CheckUserAuthentication(authFunc, nonAuthFnc) {
+    IsAuthentication(function (flag) {
+        if (flag) {
+            if (typeof authFunc !== 'undefined' || authFunc != null) {
+                authFunc();
+            }
+        }
+        else {
+            if (typeof nonAuthFnc !== 'undefined' || nonAuthFnc != null) {
+                nonAuthFnc();
+            }
+        }
+    })
+}
+
+function IsAuthentication(callback) {
+    $.ajax({
+        url: '/Clipart/IsAuthenticated',
+        contentType: 'application/json; charset=utf-8',
+        type: 'GET',
+        success: function (data) {
+            if (stringTobool(data)) {
+                callback(true);
+            }
+            else {
+                callback(false)
+            }
+        }
+    });
+}
+
+function stringTobool(value) {
+    var strBoolValues = { '1': true, '0': false, 'True': true, 'False': false, 'true': true, 'false': false, 1: true, 0: false }
+    var flag = strBoolValues[value];
+    if (typeof flag == 'undefined' && value == true) {
+        flag = true;
+    }
+    if (typeof flag == 'undefined' && value == false) {
+        flag = false;
+    }
+    return flag;
+}
+
+function Logout() {
+    window.location.href = '/Company/Login';
+}
+
+/*----Log In Control -----*/
+
+$(document).on("click", ".LoggerName", function () {
+    if ($(".UserProfile").css('visibility') == 'visible') {
+        $(".UserProfile").css('visibility', 'hidden');
+    }
+    else {
+        $(".UserProfile").css('visibility', 'visible');
+    }
+});
+
+$(document).mouseup(function (e) {
+    var container = $(".LoggerName");
+    if (!container.is(e.target) // if the target of the click isn't the container...
+        && container.has(e.target).length === 0) // ... nor a descendant of the container
+    {
+        $(".UserProfile").css('visibility', 'hidden');
+    }
+});
+
+/*----Ellipses js-----*/
+$(document).ajaxError(function (e, xhr) {
+    if (xhr.status == 401)
+        window.location.href = '/Company/Login';
+});
+
+function charControl() {
+    $('.ImgInfo span').ellipsis({ lines: 1 });
+    $('#categoryList li a').ellipsis({ lines: 1 });
+    $('.contentBox .NameColumn').ellipsis({ lines: 1 });
+}
+
+/*----Start No Image Loading-----*/
+
+function LoadNoImage(selector, noImagePath) {
+    $(selector).error(function () {
+        $(this).unbind("error").attr("src", noImagePath);
+    });
+    $(selector).each(function () {
+        if ($(this).attr("src") == "") {
+            $(this).unbind("error").attr("src", noImagePath);
+        }
+    })
+}
+
+/*----Ent No Image Loading-----*/
+
+/*----Start Tab Indexing -----*/
+
+function SetTabIndex() {
+    var tabindex = 1;
+    $('form input,form select,form button, form textarea').each(function () {
+        if (this.type != "hidden" && $(this).is(":enabled") && $(this).is(':visible')) {
+            var $input = $(this);
+            $input.attr("tabindex", tabindex);
+            tabindex++;
+        }
+    });
+    if (tabindex > 1) {
+        $('button').not('form button').each(function () {
+            if (this.type != "hidden" && $(this).is(":enabled") && $(this).is(':visible')) {
+                var $input = $(this);
+                $input.attr("tabindex", tabindex);
+                tabindex++;
+            }
+        });
+    }
+    $(".no-tabindex").attr("tabindex", -1);
+}
+function RemoveTabIndex() {
+    $('input,select,button, textarea').each(function () {
+        $('input,select,button, textarea').removeAttr("tabindex");
+    });
+}
+/*----End Tab Indexing -----*/
+
+/*----Start Preview Pop Up -----*/
+function PreviewPopUp(productCode, websiteId, userId, isGuest, width, height, designId, webApiClientKey) {
+    productCode = getEncodedProductCode(productCode);
+    //var host = window.location.host;
+    //var src = domainIp + '/Preview?productId=' + ProductId + '&websiteId=' + websiteId + '&userId=' + userId + '&frontAppUserId=' + frontAppUserId;
+    var parameterString = 'productCode=' + productCode + '&websiteId=' + websiteId + '&userId=' + userId + '&isGuest=' + isGuest;
+
+    if (typeof designId != 'undefined' && designId != null) {
+        parameterString = parameterString + "&customizedProductId=" + designId + "&webApiClientKey=" + webApiClientKey;
+    }
+    var src = GetEncodedLaunchUrl(domainIp + '/Preview?', parameterString);
+    window.open(src, '', 'resizable=1,width=' + width + ',height=' + height);
+}
+/*----End Preview Pop Up -----*/
+
+
+function GenrateDesinerUrlForEdit(productCode, websiteId, userId, isGuest, webApiclientKey, designId, adminUserId) {
+    //var host = window.location.host;
+    productCode = getEncodedProductCode(productCode);
+    var src = 'productCode=' + productCode + '&websiteId=' + websiteId + '&userId=' + userId + '&isGuest=' + isGuest + '&webApiclientKey=' + webApiclientKey + "&customizedProductId=" + designId + "&adminUserId=" + adminUserId;
+
+    return GetEncodedLaunchUrl(domainIp + '/Designer?', src);
+}
+Artifi = {
+    InitializeInPunchOut: function (productCode, websiteId, userId, isGuest, width, height, designId, webApiclientKey, extraQueryString, cartQueryString) {
+
+        if (extraQueryString != null && extraQueryString != '' && extraQueryString !== "undefined") {
+            extraQueryString += "&isPunchOut=true";
+        }
+        else {
+            extraQueryString = "isPunchOut=true";
+        }
+        productCode = getEncodedProductCode(productCode);
+        var src = Artifi.BuildDesignerUrl(productCode, websiteId, userId, isGuest, designId, webApiclientKey, '', extraQueryString, cartQueryString);
+
+        window.open(src, '_blank', 'width=' + width + ',height=' + height);
+    },
+
+    BuildDesignerUrl: function (productCode, websiteId, userId, isGuest, designId, webApiclientKey, appType, extraQueryString, cartQueryString) {
+        productCode = getEncodedProductCode(productCode);
+        var src = 'productCode=' + productCode + '&websiteId=' + websiteId + '&userId=' + userId + '&isGuest=' + isGuest;
+
+        if (typeof webApiclientKey !== 'undefined' && webApiclientKey != null && webApiclientKey != '') {
+            src = src + "&webApiclientKey=" + webApiclientKey;
+        }
+
+        if (typeof designId !== 'undefined' && designId != null && designId != '') {
+            src = src + "&customizedProductId=" + designId;
+        }
+
+        if (typeof appType !== 'undefined' && appType != null && appType != '') {
+            src = src + "&appType=" + appType;
+        }
+
+        if (typeof extraQueryString !== 'undefined' && extraQueryString != null && extraQueryString != '') {
+            src = src + "&extraQueryString=" + (extraQueryString);
+        }
+
+        if (typeof cartQueryString !== 'undefined' && cartQueryString != null && cartQueryString != '') {
+            src = src + "&cartQueryString=" + (cartQueryString);
+        }
+
+        return GetEncodedLaunchUrl(domainIp + '/Designer?', src);
+    }
+}
+
+
+/* Start Validate File Size */
+function ValidateFileSize(file, fileSizeLimit) {
+    var fileSize = file.size;
+
+    if (fileSize >= fileSizeLimit) {
+        return false;
+    }
+    else {
+        return true;
+    }
+}
+/* End Validate File Size */
+
+/* Start Validate File Type */
+function ValidateFileType(file, extensionArray) {
+    var fileName = file.name;
+    var fileExtension = fileName.substr((fileName.lastIndexOf('.') + 1)).toLowerCase();
+
+    if ($.inArray('.' + fileExtension, extensionArray) == -1) {
+        return false;
+    }
+    else {
+        return true;
+    }
+}
+/* Start Validate File Type */
+
+/* Start Image Dimension Validation */
+function ValidateImageDimension(file, _url, height, width, onSuccess, onError, isCheckVectorDimention) {
+    if (IsVectorFileType(file.type)) {
+        if (isCheckVectorDimention) {
+            CheckVectorImageDimention(file, height, width, onSuccess, onError)
+        } else {
+            onSuccess();
+        }
+    } else {
+        var img = new Image();
+        img.setAttribute('data-height', height);
+        img.setAttribute('data-width', width);
+
+        img.onload = function () {
+            var requiredHeight = this.getAttribute('data-height');
+            var requiredWidth = this.getAttribute('data-width');
+
+            if (this.width == parseInt(requiredWidth) && this.height == parseInt(requiredHeight)) {
+                this.callback.onSuccess();
+            }
+            else {
+                this.callback.onError();
+            }
+        };
+        img.src = _url.createObjectURL(file);
+        img.callback = { onSuccess: onSuccess, onError: onError };
+    }
+
+}
+/* End Image Dimension Validation */
+
+/* Checks Provided file mimetype is vector or not, if yes then returns true else false*/
+function IsVectorFileType(fileType) {
+    return (Artifi.Config.vectorImageMimeTypes.indexOf(fileType) != -1) ? true : false;
+}
+/* Create Front designer Url */
+function GenerateFrontDesignerURL(defaultFrontURL, productCode, websiteId, userId, isGuest, webApiClicentKey, extraQueryString, cartQueryString) {
+
+    productCode = getEncodedProductCode(productCode);
+    if (websiteId > 0) {
+        launchParameter = "productCode=" + productCode + "&websiteid=" + websiteId + "&userId=" + userId + "&isGuest=" + isGuest + "&webApiclientKey=" + webApiClicentKey;
+        if (typeof extraQueryString !== 'undefined' && extraQueryString != null && extraQueryString != '') {
+            launchParameter = launchParameter + "&extraQueryString=" + (extraQueryString);
+        }
+
+        if (typeof cartQueryString !== 'undefined' && cartQueryString != null && cartQueryString != '') {
+            launchParameter = launchParameter + "&cartQueryString=" + (cartQueryString);
+        }
+    }
+    return GetEncodedLaunchUrl(defaultFrontURL, launchParameter);
+
+}
+
+function getEncodedProductCode(productCode) {
+    productCode = decodeURIComponent(productCode);
+    return encodeURIComponent(productCode);
+}
+/* Here we  are check the decoded base64 string if staring length has % 4 == 2  then we add the '@' char in productCode or Sku value and its remove from server ends . 
+ * TODO: This is not permeant fix we need to check again
+ */
+function GetEncodedLaunchUrl(defaultFrontURL, launchParameter) {
+    // replacing  char '+' to '_' and '/' to '-' and '=' to ''
+    var launchDesignerUrl = "#";
+    var base64LaunchUrl = "";
+    try {
+
+        if (IsUrlEncodingEnableInLaunching) {
+
+            if (launchParameter.length % 3 == 2) {
+                base64LaunchUrl = getEncodedString(launchParameter);
+            }
+            else if (launchParameter.length % 3 == 1) {
+                var finalParameter = modifyProductCodeAndSKU(launchParameter, 1);
+                base64LaunchUrl = getEncodedString(finalParameter);
+            }
+            else if (launchParameter.length % 3 == 0) {
+                var finalParameter = modifyProductCodeAndSKU(launchParameter, 2);
+                base64LaunchUrl = getEncodedString(finalParameter);
+            }
+            launchDesignerUrl = defaultFrontURL + parametarHeaderKey + "=" + base64LaunchUrl
+        }
+        else {
+            launchDesignerUrl = defaultFrontURL + launchParameter;
+        }
+        return launchDesignerUrl;
+
+    } catch (e) {
+
+        console.log('Launching Url Error in GetEncodedLaunchURL()', e.stack);
+    }
+}
+
+/* Function for adding '@' to product code or sku */
+function getEncodedString(urlParameter) {
+    var base64EncodedUrl = Base64.encode(urlParameter);
+    base64EncodedUrl = base64EncodedUrl.replace(/\r?\n/g, "");
+    base64EncodedUrl = base64EncodedUrl.replace(/\+/g, '_').replace(/\//g, "-").replace(/=/g, "");
+    return base64EncodedUrl;
+}
+/* Function for adding '@' to product code or sku */
+function modifyProductCodeAndSKU(launchParameter, charectorAddCount) {
+
+    var charectorstring = "";
+    for (var count = 0; count < charectorAddCount; count++) {
+        charectorstring = charectorstring + "@";
+    }
+    var parameterlist = launchParameter.split("&");
+    for (i = 0; i < parameterlist.length; i++) {
+        if (parameterlist) {
+            var paramString = parameterlist[i].split('=');
+            var key = paramString[0];
+            var val = paramString[1];
+            if (key && (key.toLowerCase() == "productcode" || key.toLowerCase() == "sku")) {
+                val = val + charectorstring;
+                key = key + "=" + val;
+                parameterlist[i] = key;
+            }
+        }
+    }
+    return parameterlist.join('&');
+}
+/* Create front designer URL for creating design gallery */
+function GenerateDesignGalleryUrl(productCode, websiteId, userId, isGuest, webApiclientKey, adminUserId, designGalleryCode, sku) {
+    var url = "";
+    if (productCode != null) {
+        url = domainIp + '/DesignGallery?productCode=' + encodeURIComponent(productCode) + '&websiteId=' + websiteId + '&userId=' + userId + '&isGuest=' + isGuest + '&webApiclientKey=' + webApiclientKey + "&adminUserId=" + adminUserId;
+    }
+    else if (sku != null) {
+        url = domainIp + '/DesignGallery?sku=' + encodeURIComponent(sku) + '&websiteId=' + websiteId + '&userId=' + userId + '&isGuest=' + isGuest + '&webApiclientKey=' + webApiclientKey + "&adminUserId=" + adminUserId;
+    }
+
+    if (designGalleryCode != null) {
+        var src = url + "&designGalleryCode=" + encodeURIComponent(designGalleryCode);
+        return src;
+    }
+    else {
+        return url;
+    }
+}
+
+/*End Front Designer Url */
+
+/*---Browse Button Code---*/
+
+function handleFileSelect(evt) {
+
+    var files = evt.target.files; // FileList object
+
+    // files is a FileList of File objects. List some properties.
+    var html = '';
+    for (var i = 0; i < files.length; i++) {
+        html += '<li title=' + (files[i].name) + '>' + (files[i].name) + '</li>';
+    }
+
+    if ($("#file-op").length) {
+        document.getElementById('file-op').innerHTML = '<ul>' + html + '</ul>';
+    }
+
+}
+
+$(document).on('change', 'input[type=file]', function (e) {
+    handleFileSelect(e);
+});
+
+/* This function is used to show alert using json string*/
+function DeleteFailAlert(jsonMessage, title) {
+    var data = $.parseJSON(jsonMessage);
+    var str = DeleteFailMessage(jsonMessage);
+    jAlert('info', "<div class='MessageText'>" + title + "(s) cannot be deleted as this/these " + title.toLowerCase() + "(s) is/are assigned to following:</div>" + "<div style='height:94px; overflow-y:auto;'>" + str + "</div>", title);
+}
+
+function SingleDeleteFailAlert(jsonMessage, title) {
+    var data = $.parseJSON(jsonMessage);
+    var str = DeleteFailMessage(jsonMessage);
+    jAlert('info', "<div class='MessageText'>" + title + " cannot be deleted as this " + title.toLowerCase() + " is assigned to following:</div>" + "<div style='height:94px; overflow-y:auto;'>" + str + "</div>", title);
+}
+
+function DeleteFailMessage(jsonMessage) {
+    var data = $.parseJSON(jsonMessage);
+    var str = '';
+    for (var i = 0; i < data.Result.length; i++) {
+        var tblName = data.Result[i].TableName;
+        var recordCount = data.Result[i].RecordCount;
+        str += '<p style="margin-bottom: 0px;margin-left:60px;">' + parseInt(i + 1) + ". " + String(tblName).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') + ' (' + recordCount + ')</p>';
+    }
+    return str;
+}
+
+$(document).on("keypress", ".NumberField", function (e) {
+    if (e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57)) {
+        return false;
+    }
+});
+
+/*
+ * Method to generate string by replacing dynamic values
+ * Ex: 'I live in {0}, {1}' will get transformed to 'I live in Nagpur, India'
+*/
+function generateString(str, valueArray) {
+    var generatedString = str;
+    for (var i = 0; i < valueArray.length; i++) {
+        generatedString = generatedString.replace("{" + i + "}", valueArray[i]);
+    }
+    return generatedString;
+}
+
+function RemoveRowFromGrid(gridSelector, ids, callbackEvent) {
+    for (var index = 0; index < ids.length; index++) {
+        $(gridSelector).each(function () {
+            if ($(this).attr('value') == ids) {
+                var tr = $(this).parents('tr:first');
+                tr.remove();
+                return false;
+            }
+        });
+    }
+    DeleteFromListCount(ids.length);//Update Total Count on List Pages after Delete
+    noOfRows = $(gridSelector).length;
+    if (noOfRows == 0) {
+        $("#grid").remove();
+    }
+    //zTODO: use jQuery to trigger event.
+    var event = document.createEvent("Events");
+    event.initEvent(callbackEvent, true, true);
+    document.dispatchEvent(event);
+}
+
+
+$(document).on("click", "#advance-search", function () {
+    $('#list-search-content').slideToggle(setTableHeight);
+    $('#export-chart-panel').slideUp();
+}
+);
+$(document).on("click", "#export-chart", function () {
+    $('#list-search-content').slideUp();
+    $('#export-chart-panel').slideToggle(setTableHeight);
+}
+);
+// Calculate window size for responsive table height
+function setTableHeight() {
+    var scrollElement = $('#scrollTbodyLazyLoad');
+    if (!scrollElement.length) return;
+    $('body').css("overflow-y", "hidden");
+    $('.FooterContainer').css({ position: "fixed" });
+    var tableListTop = scrollElement.offset().top;
+    var listHeight = $("#Footer").offset().top - tableListTop;
+    $('#scrollTbodyLazyLoad').css("max-height", listHeight);
+}
+//this function hides the popup when user press Escape button. 
+//whenever you want to do anything in Keydow write in this method by 
+//seprating out if and else 
+$(document).on('keydown', function (e) {
+    if (e.keyCode === 27) {
+        $('#popup_overlay').hide();
+        $('#popup_container').hide();
+        $("#jpopup_container").hide();
+        $("#jpopup_overlay").hide();
+        $('html').css('overflow', 'auto');
+
+
+    }
+});
+
+/**
+* Method to convert any unit value into pixel value
+* {_unit} [String] unit from which value need to be converted.
+* {_value} [Number] value which value need to be converted.
+* {dpiValue} [int] DPI value.
+* {isFixedValRequired} [bool] If true then final value is fixed into decimals sa per 'toUnit' value.
+* {isLabelRequired} [bool] If true the value is returned as string with unit's notation attached with it.
+* {_errorCallback} [function] Error callback function.
+*/
+function convertToUnit(fromUnit, toUnit, value, dpiValue, isLabelRequired, isFixedValRequired, errorCallback) {
+    if (fromUnit.toLowerCase() == toUnit.toLowerCase()) {
+        if (isFixedValRequired) {
+            value = getFixValueForUnit(toUnit, value);
+        }
+        if (isLabelRequired) {
+            value = parseFloat(value) + getUnitNotation(toUnit);
+        }
+        return value;
+    }
+    else if (toUnit.toLowerCase() == "px" || toUnit.toLowerCase() == "pixel") {
+        return convertToPixel(fromUnit, value, dpiValue, isLabelRequired, isFixedValRequired, errorCallback);
+    }
+
+    else {
+        return convertFromPixel(toUnit, value, dpiValue, isLabelRequired, isFixedValRequired, errorCallback);
+    }
+}
+
+/**
+* Method to convert any unit value into pixel value
+* {_unit} [String] unit into which value need to be converted.
+* {_value} [Number] value which value need to be converted.
+* {dpiValue} [int] DPI value.E:\MRR\Artifi\Projects\DotNetSource-QA-Fixes\zConfigurator.UI.Admin\Script/FileUploader/
+* {isFixedValRequired} [bool] If true then final value is fixed into decimals sa per 'toUnit' value.
+* {isLabelRequired} [bool] If true the value is returned as string with unit's notation attached with it.
+* {_errorCallback} [function] Error callback function.
+*/
+function convertToPixel(_unit, _value, dpiValue, isLabelRequired, isFixedValRequired, _errorCallback) {
+
+    var pixelValue = null; /* FOR CHECKING VALUE IS POSITIVE OR NOT ELSE CALLING CALLBACK ERROR FUNCTION */
+    var decimalPrecision = null;
+    var conversionFactorPxToPt = 0.75;
+    try {
+        if (conversionFactorPxToPt != "Null") {
+            conversionPxToPt = conversionFactorPxToPt;
+            decimalFixedValue = 0;
+        }
+    } catch (e) {
+        console.log(e.message);
+    }
+    if (typeof _value == 'undefined' || _value == null || _value < 0) {
+        _errorCallback();
+    }
+    _unit = _unit.toLowerCase();
+    switch (_unit) {
+
+        case "in":
+        case "inch":
+        case "inches":
+            {
+                pixelValue = dpiValue * _value;
+                decimalPrecision = (pixelValue % 1);
+                if (decimalPrecision <= 0.1) {                      /* flooring if decimal values is less than or equal to 0.1  */
+                    pixelValue = Math.floor(pixelValue);
+                }
+                else if (decimalPrecision >= 0.9) {                 /* Ceiling if decimal values is greater than or equal to 0.9  */
+                    pixelValue = Math.ceil(pixelValue);
+                }
+                break;
+            }
+        case "px":
+        case "pixel":
+            {
+                pixelValue = _value;
+                break;
+            }
+        case "pt":
+        case "point":
+            {
+                pixelValue = _value / conversionPxToPt;
+                break;
+            }
+        case "cm":
+        case "centimeter":
+            {
+                var inchValue = _value * 0.393701;
+                pixelValue = dpiValue * inchValue;
+                break;
+            }
+        case "ft":
+        case "feet":
+            {
+                var inchValue = _value / 12;
+                pixelValue = dpiValue * inchValue;
+                break;
+            }
+        default:
+            {
+                console.log('unit mismatch'); /* need to remove */
+                _errorCallback();
+                break;
+            }
+
+
+    }
+    if (isFixedValRequired) {
+        pixelValue = getFixValueForUnit("px", pixelValue);
+    }
+    if (isLabelRequired) {
+        pixelValue = pixelValue + getUnitNotation("px");
+    }
+    return pixelValue;
+}
+
+/**
+* Method to convert any pixel value into any unit value
+* {_unit} [String] unit into which value need to be converted.
+* {_value} [Number] value which value need to be converted.
+* {dpiValue} [int] DPI value.
+* {isFixedValRequired} [bool] If true then final value is fixed into decimals sa per 'toUnit' value.
+* {isLabelRequired} [bool] If true the value is returned as string with unit's notation attached with it.
+* {_errorCallback} [function] Error callback function.
+*/
+function convertFromPixel(_unit, _value, dpiValue, isLabelRequired, isFixedValRequired, _errorCallback) {
+    var unitValue = null; /* FOR CHECKING VALUE IS POSITIVE OR NOT ELSE CALLING CALLBACK ERROR FUNCTION */
+    var conversionFactorPxToPt = 0.75;
+    try {
+        if (conversionFactorPxToPt != "Null") {
+            conversionPxToPt = conversionFactorPxToPt;
+        }
+    } catch (e) {
+        console.log(e.message);
+    }
+
+
+    if (typeof _value == 'undefined' || _value == null || _value < 0) {
+        _errorCallback();
+    }
+    _unit = _unit.toLowerCase();
+    switch (_unit) {
+
+        case "in":
+        case "inch":
+        case "inches":
+            {
+                unitValue = _value / dpiValue;
+                break;
+            }
+        case "pt":
+        case "point":
+            {
+                unitValue = _value * conversionPxToPt;
+                break;
+            }
+        case "px":
+        case "pixel":
+            {
+                unitValue = _value;
+                break;
+            }
+        case "cm":
+        case "centimeter":
+            {
+                var inchValue = _value / dpiValue; // * 0.393701;
+                unitValue = inchValue * 2.54;
+                break;
+            }
+        case "ft":
+        case "feet":
+            {
+                var inchValue = _value / dpiValue;
+                unitValue = inchValue / 12;
+                break;
+            }
+        default:
+            {
+                console.log('unit mismatch'); /* need to remove */
+                _errorCallback();
+                break;
+            }
+
+
+    }
+    if (isFixedValRequired) {
+        unitValue = getFixValueForUnit(_unit, unitValue);
+    }
+    if (isLabelRequired) {
+        unitValue = unitValue + getUnitNotation(_unit);
+    }
+    return unitValue;
+}
+
+/**
+* Method to get unit symbol notation
+* @param {unit} [String] unit for which notation is requested.
+*/
+function getUnitNotation(unit) {
+    var notation = "";
+    switch (unit.toLowerCase()) {
+
+        case "in":
+        case "inch":
+        case "inches":
+            {
+                notation = '"';
+                break;
+            }
+        case "px":
+        case "pixel":
+            {
+                notation = 'px';
+                break;
+            }
+        case "pt":
+        case "point":
+            {
+                notation = 'pt';
+                break;
+            }
+        case "cm":
+        case "centimeter":
+            {
+                notation = 'cm';
+                break;
+            }
+        case "ft":
+        case "feet":
+            {
+                notation = 'ft';
+                break;
+            }
+        default:
+            {
+                console.log('unit mismatch'); /* need to remove */
+                _errorCallback();
+                break;
+            }
+    }
+    return notation;
+}
+
+/**
+* Method to fix the value as per the unit provided
+@param {unit} [String] unit for which value needs to be fixed.
+@param {value} [Number] value which need to be fixed in decimal
+*/
+function getFixValueForUnit(unit, value) {
+    var _val = parseFloat(value);
+    switch (unit.toLowerCase()) {
+
+        case "in":
+        case "inch":
+        case "inches":
+            {
+                _val = _val.toFixed(4);
+                break;
+            }
+        case "px":
+        case "pixel":
+            {
+                _val = _val.toFixed(4);
+                break;
+            }
+        case "pt":
+        case "point":
+            {
+                _val = _val.toFixed(decimalFixedValue);
+                break;
+            }
+        case "cm":
+        case "centimeter":
+            {
+                _val = _val.toFixed(2);
+                break;
+            }
+        case "ft":
+        case "feet":
+            {
+                _val = _val.toFixed(2);
+                break;
+            }
+        default:
+            {
+                console.log('unit mismatch'); /* need to remove */
+                _errorCallback();
+                break;
+            }
+    }
+    return _val;
+}
+
+UnitConstant = {
+    PX: "px",
+    PIXEL: "pixel",
+    IN: "in",
+    INCH: "inch",
+    INCHES: "inches",
+    Pt: "pt",
+    Point: "point"
+}
+
+var VirtualPopup = {
+
+    initialInputHtmlState: "",
+    Show: function (popupHtmlElement, overlayElementId) {
+        var height = $(document).innerHeight();
+        var width = $(document).innerWidth();
+
+        var popupHeight = popupHtmlElement.innerHeight();
+        var popupWidth = popupHtmlElement.innerWidth();
+
+        var h = (height / 2) - (popupHeight / 2);
+        var w = (width / 2) - (popupWidth / 2);
+
+        popupHtmlElement.attr("style", "top = " + h + "px");
+        popupHtmlElement.attr("style", "left = " + w + "px");
+
+        $("#" + overlayElementId).attr("style", "height: " + height);
+        $("#" + overlayElementId).attr("style", "width: " + width);
+        $("#" + overlayElementId).attr("style", "display:block");
+        popupHtmlElement.fadeIn("fast");
+
+        var containerId = popupHtmlElement.find(".productImageUploadContainer").attr("id");
+        VirtualPopup.initialInputHtmlState = $("#" + containerId).html();
+        $(".errorMessageContainer").hide();
+    },
+
+    Hide: function (_this, overlayElementId, popupContainerClass, isCancel) {
+        $("#" + overlayElementId).css("display", "none");
+        $(_this).closest("." + popupContainerClass).hide();
+
+        if (typeof isCancel != typeof undefined && isCancel != null && isCancel !== "") {
+            if (isCancel == true) {
+                //$(".productImageUploadContainer").html(VirtualPopup.initialInputHtmlState);
+                $("[data-valmsg-for=PrintImageURL]").addClass('field-validation-valid').removeClass('field-validation-error').text('');
+                $("[data-valmsg-for=PrintImage]").addClass('field-validation-valid').removeClass('field-validation-error').text('');
+                $("[data-valmsg-for=Image]").addClass('field-validation-valid').removeClass('field-validation-error').text('');
+            }
+        }
+        VirtualPopup.initialInputHtmlState = "";
+        $(".errorMessageContainer").show();
+    }
+}
+
+/*This function disables the given control and also make that control unclickable*/
+function DisableControl(selector, className) {
+    $(selector).prop('disabled', true);
+    $(selector).addClass(className);
+    $(selector).css("pointer-events", "none");
+}
+
+/*This function enables the given control and also make that control clickable*/
+function EnableControl(selector, className) {
+    $(selector).prop('disabled', false);
+    $(selector).removeClass(className);
+    $(selector).css("pointer-events", "auto");
+
+}
+
+/*This function is to clear the textbox having the class  which passed*/
+function ClearValueOfControl(selector) {
+    $(selector).val('');
+
+}
+
+/*Function use for getting unique String*/
+function uniqueStringForDisplayImage() {
+    var text = "";
+    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    for (var i = 0; i < 8; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    return text;
+}
+/*Function used for disabling right click of mouse*/
+function disableContextMenu(className) {
+    $('.' + className).on('contextmenu', function (e) {
+        e.preventDefault();
+        return false;
+    });
+}
+/**
+        This function introduces timeout on cut / paste events because data is recieved after some milliseconds ,
+        ref Link :- http://stackoverflow.com/questions/9494283/jquery-how-to-get-the-pasted-content ,
+    **/
+
+function CheckPasteValidation(e, relAttribute) {
+    $("input[rel=" + relAttribute + "]").on('paste', function (e) {
+        var _this = $(this);
+        _this.val(_this.val().replace(/[^0-9]/g, ''));
+        setTimeout(function () {
+            _this.val(_this.val().replace(/[^0-9]/g, ''));
+        }, 0.1)
+    });
+}
+function CheckVectorImageDimention(uploadedFile, height, width, onSuccess, onError) {
+    var formData = new FormData();
+    var url = Artifi.Config.adminBaseUrl + Artifi.Config.checkVectorDimention;
+    if (uploadedFile) {
+        formData.append("HelpSectionImages", uploadedFile);
+        formData.append("PreviousImageWidth", width);
+        formData.append("PreviousImageHeight", height);
+    }
+    startLoading();
+    FormDataAjaxCall(formData, url, function (data) {
+        stopLoading();
+        CheckVectorImageDimentionSuccessCallback(data, onSuccess, onError);
+    }, function (data) {
+        stopLoading();
+        CheckVectorImageDimentionErrorCallback(data, onError);
+    }
+    );
+    return false;
+}
+
+function CheckVectorImageDimentionSuccessCallback(data, onSuccess, onError) {
+    stopLoading();
+    if (data.Response) {
+        onSuccess(data);
+    } else {
+        onError();
+    }
+}
+
+function CheckVectorImageDimentionErrorCallback(data, onError) {
+    onError();
+    stopLoading();
+    console.log("Artifi.js : CheckVectorImageDimention()");
+    jAlert('error', Artifi.AdminLocalization.UPLOAD_IMAGE_ERROR);
+}
+
+/**
+ * Function is used to submit formData related ajax call, so file can be saved
+ * @param {any} data
+ * @param {any} url
+ * @param {any} onSuccess
+ * @param {any} onError
+ */
+function FormDataAjaxCall(data, url, onSuccess, onError) {
+    $.ajax({
+        url: url,
+        type: "POST",
+        processData: false,
+        data: data,
+        contentType: false,
+        success: function (responceData) {
+            onSuccess(responceData);
+        },
+        error: function (er) {
+            onError();
+        }
+    });
+}
+
+function SetImageValidationWidthHeight(imageDimensionAttr, height, width, message) {
+    $("Input[name='Image']").attr(imageDimensionAttr + "-width", width);
+    $("Input[name='Image']").attr(imageDimensionAttr + "-height", height);
+    $("Input[name='Image']").attr(imageDimensionAttr, message);
+}
+function GenerateApiDesignerUrl(productCode, websiteId, webApiClientKey, userId) {
+    productCode = getEncodedProductCode(productCode);
+    var parameterString = 'websiteId=' + websiteId + '&webApiClientKey=' + webApiClientKey + '&productCode=' + productCode + '&userId=' + userId;
+    return GetEncodedLaunchUrl(domainIp + '/APIDesigner?', parameterString);
+}
+/**
+ * Function is used to Update Total Count on List Pages after Delete
+ * @param {any} deleteCount
+ */
+function DeleteFromListCount(deleteCount) {
+    var spanTotalCount = $("#totalRecordCount");
+    if (spanTotalCount) {
+        var oldCount = spanTotalCount.text();
+        var newcount = oldCount - deleteCount;
+        spanTotalCount.text(newcount);
+    }
+}

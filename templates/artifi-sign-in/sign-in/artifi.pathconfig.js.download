@@ -1,0 +1,8 @@
+﻿var ArtifiAdmin = {};
+ArtifiAdmin.PathConfig = {
+    serverFrontUrl: '//designer.artifi.net/',
+    serverAdminUrl: '//admin.artifi.net/',
+    adminImageUrl: "//images.artifi.net/",
+    designerImageUrl: "//designerimages.artifi.net/",
+	webApiUrl: '//api.artifi.net/'
+}
